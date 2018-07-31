@@ -7,8 +7,8 @@ const DEBUG = true;
 const EMPTY_ARRAY = [];
 const NON_TOP_EMPTY_CHILDREN = [];
 const NON_TOP_EMPTY_NODE = {_c: NON_TOP_EMPTY_CHILDREN};
+
 const NOT_HANDLED = {}; // constant that can be returned by event handlers
-const KEEP = {}; // constant that can be returned by onremove
 
 let currentInstance; // set during event handlers and component rendering
 
@@ -112,7 +112,7 @@ function mount(domParent, func) {
       return create(newNode._a, newNode, parentStable);
     }
     if (typeof tag !== 'string') {
-        if (DEBUG && typeof tag !== 'string') console.error("invalid virtual DOM node:", newNode);
+        if (DEBUG) console.error("invalid virtual DOM node:", newNode);
         return create(""+tag);
     }
     
@@ -205,7 +205,7 @@ function mount(domParent, func) {
       let oldKeys = {};
       let oldElements = [];
       let insertBeforeE = null;
-      if (oldChildren.length) {
+      if (oldChildren.length > start) {
         domPath[domPathPos] = start;
         insertBeforeE = resolveDomPath(domPath);
         for(let i=start; i<oldChildren.length-end; i++) {
@@ -234,24 +234,32 @@ function mount(domParent, func) {
         domWrites++;
       }
 
-      // Removed spurious elements from the DOM
-      let keeping = [];
+      // Remove spurious elements from the DOM
       for(let i=0; i<oldElements.length; i++) {
         let element = oldElements[i];
         if (element) {
           let child = oldChildren[start+i];
           if (typeof child !== 'string') {
-            if (destroy(child, context, element)===KEEP) {
-              keeping.push(child);
+	        if (child._t === 'kept') {
+              newChildren.splice(start++, 0, child);
+		      continue;
+		    }
+	        let res = destroy(child, context, element);
+	        if (res && typeof res.then === 'function') {
+		      let kept = {_t: 'kept', _c: []}
+              newChildren.splice(start++, 0, kept);
+              (function(kept) {
+                res.then(function() {
+	              kept._t = 'discard';
+	              instance.refreshNow();
+	            });
+	          })(kept);
               continue;
-            }
+		    }
           }
           dom.removeChild(element);
           domWrites++;
         }
-      }
-      if (keeping.length) {
-        newChildren.splice(start, 0, keeping);
       }
     }
     domPath.length = domPathPos;
@@ -366,7 +374,7 @@ function mount(domParent, func) {
   }
   
   function refreshEventResult (result) {
-    refresh();
+    refreshNow();
     if (result && typeof result.then === 'function') {
       result.then(refreshEventResult);
     }
@@ -379,12 +387,12 @@ function mount(domParent, func) {
   }
   
   function destroy(node, props, element) {
-    if (node._a) return destroy(node._a, node);
-    if (node.onremove) node.onremove(props, {node, element, parentStable:!!element});
+    if (node._a) return destroy(node._a, node, element);
     let children = node._c;
     for(let i = 0; i < children.length; i++) {
       if (typeof children[i] !== 'string') destroy(children[i], props);
     }
+    if (node.onremove) return node.onremove(props, {node, element, parentStable:!!element});
   }
   
   function resolveDomPath(path,limit) {
@@ -424,12 +432,15 @@ function mount(domParent, func) {
         context = tree;
         tree = tree._a;
       }
+      if (tree._t==='kept') break; // not really part of the virtual DOM anymore
       treeArray.push(tree, context);
-      if (--i < 0) break;
+      if (--i < 0) {
+		    if (DEBUG && treeArray[treeArray.length-2]._e !== event.target) console.error("event tree resolve failed", event.target, treeArray[treeArray.length-2]._e, indexes);
+	      break;
+	  }
       tree = tree._c[indexes[i]];
     }
     
-    if (DEBUG && treeArray[treeArray.length-2]._e !== event.target) console.error("event tree resolve failed", event.target, treeArray[treeArray.length-2]._e, indexes);
 
     let type = 'on' + event.type;
     console.log('glasgow event', type);
@@ -477,6 +488,57 @@ function mount(domParent, func) {
 }
 
 
-let statics = {mount, NOT_HANDLED, KEEP};
+
+function fadeIn(props, {element, parentStable}) {
+	if (parentStable) transition({
+		element,
+		from: {height: "1px", opacity: 0, overflow: 'hidden'},
+		to: {height: element.offsetHeight+'px', opacity: 1}
+	});
+}
+
+function fadeOut(props, {element, parentStable}) {
+	if (parentStable) return transition({
+		element,
+		from: {overflow: 'hidden', height: element.offsetHeight+'px'},
+		to: {height: '0px', opacity: 0},
+		keep: true
+	});
+}
+
+function transition({element, from, to, time, easing}) {
+	time = time || 350;
+	easing = easing || 'ease-out';
+
+	let transition = [];
+	for(let k in to) {
+		transition.push(`${k} ${easing} ${time}ms`);
+	}
+	from.transition = transition.join();
+
+	let original = {};
+	for(let k in from) {
+		original[k] = element.style[k];
+		element.style[k] = from[k];
+	}
+
+	return new Promise(function(accept) {
+		setTimeout(function() {
+			for(let k in to) {
+				if (!original.hasOwnProperty(k)) original[k] = element.style[k];
+				element.style[k] = to[k];
+			}
+			setTimeout(function() {
+				for(let k in original) {
+					element.style[k] = original[k];
+				}
+				accept();
+			}, time+150);
+		}, 0);
+	});
+}
+
+
+let statics = {mount, NOT_HANDLED, transition, fadeIn, fadeOut};
 for(let k in statics) glasgow[k] = statics[k];
 

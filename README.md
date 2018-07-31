@@ -93,7 +93,7 @@ tearea.mount(document.body, ToDo);
 
 ## Installation
 
-Apart from installing and importing this library, you'll need to setup *babel* to transpile JSX to plain JavaScript. Sorry, no details instructions yet.
+Apart from installing and importing this library, you'll need to setup *babel* to transpile JSX to plain JavaScript. Sorry, no detailed instructions yet.
 
 
 
@@ -164,6 +164,64 @@ let instance = glasgow.mount(document.body, MyComponent);
 let instance = glasgow.mount(document.body, <MyComponent foo={bar} />);
 ```
 
+#### glasgow.fadeIn(props, {element, parentStable})
+
+This built-it transition can be used as an event handler for `oncreate` events to achieve a grow-and-fade-in effect when an element first appears.
+
+The effect wil only happen when the element's parent already existed *before* this refresh.
+
+See the example in the next section.
+
+#### glasgow.fadeOut(props, {element, parentStable})
+
+This built-it transition can be used as an event handler for `onremove` events to achieve a shrink-and-fade-out effect when an element disappears from the DOM.
+
+This function returns a Promise, used to tell glasgow when the element can be removed. (See: Event handlers - onremove.)
+
+The effect wil only happen when the element's parent is *not* being removed in this refresh.
+
+```javascript
+let list = [];
+function addItem() {
+	list.push(0|Math.random()*10);
+	list.sort();
+}
+
+function List() {
+	return <ul>
+		{list.map((item,index) => <li
+			key={item}
+			oncreate={glasgow.fadeIn}
+			onremove={glasgow.fadeOut}
+			onclick={props => list.splice(index,1)}
+		>{"#"+item}</li>)}
+		<input type='submit' onclick={addItem} value="Add" />
+	</ul>
+}
+
+glasgow.mount(document.body, List);
+```
+
+
+#### glasgow.transition({element, from, to, time, easing, keep})
+
+A helper function to perform DOM transitions.
+
+- `element`: The DOM element to work on.
+- `from`: An array of style properties to be set immediately.
+- `to`: An array of style properties to be set after a 0ms delay, triggering transition. Also, for each of the properties in this object, a `transition` clause is set.
+- `time`: Duration of the transition in ms. Default to `350`.
+- `easing`: Easing function string. Defaults to `"ease-out"`.
+- `keep`: Unless this value is true, all properties will be restored to their original states when the transition is done.
+
+`transition(..)` returns a Promise that is fulfilled shortly after the transition is ready. When an `onremove` event handler returns a Promise, glasgow will keep the DOM element around until fulfillment.
+
+
+
+#### Proxy functions to the current instance
+
+As a convenience, all functions of the glasgow instance currently refreshing or handling an event, are available on `glasgow` as well. So one could call `glasgow.unmount()` from an event handler, for instance.
+
 
 
 ### Instances
@@ -186,10 +244,6 @@ Just a little utility that returns a function wrapping `func`. It will make sure
 
 Just a convenient `refreshify(window.fetch)`. If you need to polyfill the `fetch` API (you're support Internet Explorer), make sure the polyfill is loaded before you `mount`.
 
-#### instance.afterRefresh(func)
-
-Schedule `func` to be called one time immediately after the refresh cycle is done, but before returning control back to the browser. This is useful when you want to do some direct DOM manipulation based on the complete layout. 
-
 #### instance.unmount()
 
 Remove the glasgow instance from the DOM, calling any `onremove` handlers.
@@ -205,16 +259,21 @@ Returns the currently rendered virtual DOM tree. (See: Virtual DOM nodes.) This 
 Events can be registered on any HTML virtual DOM node (meaning: *not* on components) using `on...` attributes with functions as values. For example:
 
 ```javascript
-<div onclick={info => console.log(info)}>Click me</div>
+<div onclick={handler}>Click me</div>
 ```
 
-The event handler function receives an object as its only argument, containing:
+Event handlers receive arguments like this:
 
-- `props`: the properties object of the component containing this DOM element.
-- `event`: the DOM event.
-- `element`: the DOM element that received the event.
-- `node`: the virtual DOM node (containing the attributes) for the DOM element that received the event.
-- `instance`: the glasgow instance. (See: Instances.)
+```javascript
+function handler(props, {event, element, node}) { ... }
+```
+
+Where..
+- `props` is the properties object of the component containing this DOM element.
+- 
+- `event` is the DOM event.
+- `element` is the DOM element that received the event.
+- `node` is the virtual DOM node (containing the attributes) for the DOM element that received the event.
 
 When the event handler returns anything other than `glasgow.NOT_HANDLED`, the event will not propagate further up the tree, and `preventDefault()` will be called on it.
 
@@ -226,30 +285,62 @@ Because of this, having lots of event handlers in your tree will not require the
 
 #### oncreate *(unstable)*
 
-`oncreate` is a special case event, as it is not a DOM event. It is fired right after a DOM element is created, but before its properties are set or it is attached to the parent. It receives an object as its only argument, containing:
+`oncreate` is a special case event, as it is not a DOM event. It is fired right after the refresh has performed all required DOM updates, but before returning control back to the browser.
 
-- `props`: the properties object of the component containing this DOM element.
-- `element`: the DOM element that was created.
-- `node`: the virtual DOM node (containing the attributes) for the new DOM element.
-- `instance`: the glasgow instance. (See: Instances.)
-- `parentStable`: boolean indicating whether the parent DOM element already existed earlier (`true`) or was also just created in this refresh (`false`). This is mostly useful for fade-in transitions and such.
+Event handlers receive arguments like this:
+
+```javascript
+function createHandler(props, {element, node, parentStable}) { ... }
+```
+
+Where...
+- `props` is the properties object of the component containing this DOM element.
+- 
+- `element` is the DOM element that was created.
+- `node` is the virtual DOM node (containing the attributes) for the new DOM element.
+- `parentStable` is a boolean indicating whether the parent DOM element already existed earlier (`true`) or was also just created in this refresh (`false`). This is mostly useful for fade-in transitions and such.
 
 This method is marked **unstable** because I'm considering changing semantics on this in the at some point.
 
 #### onremove *(unstable)*
 
-`onremove` is a special case event, as it is not a DOM event. It is fired right befoe an element is removed from the DOM. It receives an object as its only argument, containing:
+`onremove` is a special case event, as it is not a DOM event. It is fired right before an element is removed from the DOM.
 
-- `props`: the properties object of the component containing this DOM element.
-- `node`: the virtual DOM node (containing the attributes) for the to-be-removed DOM element.
-- `instance`: the glasgow instance. (See: Instances.)
-- `parentStable`: boolean indicating whether the parent element will remain in the DOM (`true`) or will also be removed during this refresh (`false`). This is mostly useful for fade-out transitions and such.
-- `element`: the DOM element that is to be removed, but only when `parentStable == true`.
+Event handlers receive arguments like this:
 
+```javascript
+function removeHandler(props, {node, parentStable, element}) { ... }
+```
 
-When `parentStable == true` and the event handler returns `glasgow.KEEP`, the element will be preserved in the DOM (and in the virtual DOM) for now. This can be used to implement fade-out transitions.
+Where...
+- `props` is the properties object of the component containing this DOM element.
+- 
+- `node` is the virtual DOM node (containing the attributes) for the to-be-removed DOM element.
+- `parentStable` is a boolean indicating whether the parent element will remain in the DOM (`true`) or will also be removed during this refresh (`false`). This is mostly useful for fade-out transitions and such.
+- `element` is the DOM element that is to be removed, but only when `parentStable == true`. **Otherwise it is null!**
+
+When `parentStable == true` and the event handler returns a Promise, the element will be preserved in the DOM until the Promise resolves. This comes in handy for fade-out transitions, and such. (See: Transitions.)
+
 
 This method is marked **unstable** because I'm considering changing semantics on this in the at some point.
+
+#### onrefresh
+
+`onrefresh` is a special case event, as it is not a DOM event. It is fired after every refresh, before returning control back to the browser.
+
+Event handlers receive arguments like this:
+
+```javascript
+function refreshHandler(props, {node, element}) { ... }
+```
+
+Where...
+- `element` is the DOM element.
+- 
+- `node` is the virtual DOM node (containing the attributes) for the DOM element.
+- `props` is the properties object of the component containing this DOM element.
+
+This method is marked **unstable** because I'm considering changing semantics on this in the at some point. Perhaps an `onupdate` event, only firing when changes to the element or its children have been made, would be more useful.
 
 
 
@@ -296,7 +387,7 @@ When it is determined that state can safely be preserved, the old `props` object
 function Fetcher(props) {
   if (!props.$fetching) {
     props.$fetching = true;
-    this.fetch(props.url)
+    glasgow.fetch(props.url)
       .then(resp => resp.text())
       .then(text => props.$data = text);
   }
@@ -308,10 +399,35 @@ function Fetcher(props) {
 
 ### Bindings *(incomplete)*
 
-Bindings are a shortcut for setting an `oninput` event handler and a initial value on an HTML `input` (or `textarea`, or `select`) element. This creates a two-way binding between the application data and the UI view. The value for binding can be:
+Bindings are a shortcut for setting an `oninput` event handler and a initial value on an HTML `input` (or `textarea`, or `select`) element. This creates a two-way binding between the application data and the UI view.
 
-- A `binding` string. In this case the input is bound to `props[binding]`, where `props` is the properties object for the containing component. In case the string contains dots, they are used to go deeper into your data tree. Any non-existing nodes are created as empty objects. For example: `<input binding="myData.list.14" />` will bind the input to `props.myData.list[14]`. If they didn't exist yet, `myData` and `list` will be created as empty objects.
+To bind an input to the `$example` local state property, one would use:
 
-- A two-element `binding` array. You can use this to bind to arbitrary data outside of the components `props`. For example `<input binding={[myGlobalList,135]} />`.
+```javascript
+<input binding="$example" />
+```
+
+In many cases, it would be desirable to directly alter higher level state. When this state is referred to by component properties, we can bind to it by using a path array:
+
+```javascript
+function UserNameEditor(props) {
+  // This binds the input to props.users[props.userId]
+  return <input binding={["users",props.userId]} />
+}
+// And here's how you would use this component:
+let users = {1: "Frank"};
+let node = <UserNameEditor users={users}, userId={1} />;
+```
+
+It is also possible to bind to state that is not (indirectly) referred to by the components properties. Just give you state array or objects as the first element in the binding array. Like this:
+
+```javascript
+let list = [];
+function ListItem(props) {
+	return <input binding={[list, props.itemId]} />
+}
+```
 
 Bindings support should be considered **incomplete**, as not all input types are supported yet. At least `textarea` and `input` types `text`, `password`, `checkbox` and `number` *do* work. Feel free to file bugs (or pull requests!) for other types if you need them.
+
+
