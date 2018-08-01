@@ -165,6 +165,15 @@ let instance = glasgow.mount(document.body, MyComponent);
 let instance = glasgow.mount(document.body, <MyComponent foo={bar} />);
 ```
 
+#### glasgow.setDebug(debug)
+
+Configures the amount of (slow..!) extra checking and logging to perform. `debug` can be:
+
+- `0`: Production mode. Fast, but little error checking.
+- `1`: Development mode. Does a lot of extra checking and error logging, which may impact performance significantly. **Default!**
+- `2`: Reserved.
+- `3`: Verbose mode. Meaning: development mode + console.log all DOM updates.
+
 #### glasgow.fadeIn(props, {element, parentStable})
 
 This built-it transition can be used as an event handler for `oncreate` events to achieve a grow-and-fade-in effect when an element first appears.

@@ -2,8 +2,6 @@
 // (c) Frank van Viegen
 // MIT license
 
-const DEBUG = 0;
-
 const EMPTY_ARRAY = [];
 const NON_TOP_EMPTY_CHILDREN = [];
 const NON_TOP_EMPTY_NODE = {_c: NON_TOP_EMPTY_CHILDREN};
@@ -11,6 +9,12 @@ const NON_TOP_EMPTY_NODE = {_c: NON_TOP_EMPTY_CHILDREN};
 const NOT_HANDLED = {}; // constant that can be returned by event handlers
 
 let currentInstance; // set during event handlers and component rendering
+
+let debug = 1;
+	// 0. production build
+	// 1. extra checking, a lot slower!
+	// 2. reserved
+	// 3. same as 1 + console.log every DOM update
 
 
 export default function glasgow(tag, props) {
@@ -103,7 +107,7 @@ function mount(domParent, func) {
 	function create(newNode, props, parentStable) {
 		if (typeof newNode === 'string') {
 			domWrites++;
-			if (DEBUG>3) console.log('glasgow update create TextNode', newNode);
+			if (debug>3) console.log('glasgow update create TextNode', newNode);
 			return document.createTextNode(newNode);
 		}
 
@@ -113,14 +117,14 @@ function mount(domParent, func) {
 			return create(newNode._a, newNode, parentStable);
 		}
 		if (typeof tag !== 'string') {
-				if (DEBUG) console.error("invalid virtual DOM node:", newNode);
+				if (debug) console.error("invalid virtual DOM node:", newNode);
 				return create(""+tag);
 		}
 		
 		let el = document.createElement(tag);
 		if (!domRoot) domRoot = el; // this can't wait; needed for event delegation
 		domWrites++;
-		if (DEBUG>3) console.log('glasgow update create', tag);
+		if (debug>3) console.log('glasgow update create', tag);
 		if (newNode.oncreate) afterRefresh(newNode.oncreate, props, {element:el, node:newNode, parentStable});
 		patch(newNode, NON_TOP_EMPTY_NODE, [el], props);
 		return el;
@@ -137,7 +141,7 @@ function mount(domParent, func) {
 	}
 	
 	function patch(newNode, oldNode, domPath, context) {
-		if (DEBUG) {
+		if (debug) {
 			if (newNode._e) console.error('double patch', newNode, resolveDomPath(domPath));
 			if (oldNode._e && oldNode._e !== resolveDomPath(domPath)) console.error('dom element not properly matched with old node', oldNode, resolveDomPath(domPath));
 		}
@@ -146,7 +150,7 @@ function mount(domParent, func) {
 			if (newNode !== oldNode) {
 				resolveDomPath(domPath).textContent = newNode;
 				domWrites++;
-				if (DEBUG>3) console.log('glasgow update set TextNode', newNode);
+				if (debug>3) console.log('glasgow update set TextNode', newNode);
 			}
 			return newNode;
 		}
@@ -170,12 +174,12 @@ function mount(domParent, func) {
 				newNode._a = materialized;
 				resolveDomPath(domPath,domPathPos-1).replaceChild(create(materialized, newNode, true), resolveDomPath(domPath));
 				domWrites++;
-				if (DEBUG>3) console.log('glasgow update replace child', resolveDomPath(domPath));
+				if (debug>3) console.log('glasgow update replace child', resolveDomPath(domPath));
 			}
 			return newNode;
 		}
 		
-		if (DEBUG) newNode._e = resolveDomPath(domPath);
+		if (debug) newNode._e = resolveDomPath(domPath);
 		
 		let dom;
 		
@@ -215,7 +219,7 @@ function mount(domParent, func) {
 				for(let i=start; i<oldChildren.length-end; i++) {
 					let child = oldChildren[i];
 					if (typeof child === 'object' && child.key) oldKeys[child.key] = i;
-					if (DEBUG && !insertBeforeE) throw new Error("element missing");
+					if (debug && !insertBeforeE) throw new Error("element missing");
 					oldElements.push(insertBeforeE); // at i-start
 					insertBeforeE = insertBeforeE.nextSibling;
 					domReads++;
@@ -268,7 +272,7 @@ function mount(domParent, func) {
 				if (!childDom) childDom = create(newChild, context, oldChildren!==NON_TOP_EMPTY_CHILDREN);
 				dom.insertBefore(childDom, insertBeforeE);
 				domWrites++;
-				if (DEBUG>3) console.log('glasgow update insert node', childDom);
+				if (debug>3) console.log('glasgow update insert node', childDom);
 			}
 
 			// Remove spurious elements from the DOM
@@ -296,7 +300,7 @@ function mount(domParent, func) {
 					}
 					dom.removeChild(element);
 					domWrites++;
-					if (DEBUG>3) console.log('glasgow update remove element', element);
+					if (debug>3) console.log('glasgow update remove element', element);
 				}
 			}
 		}
@@ -315,7 +319,7 @@ function mount(domParent, func) {
 					console.log('glasgow delegating event type', prop);
 					domRoot.addEventListener(prop.substr(2), delegator);
 					domWrites++;
-					if (DEBUG>3) console.log('glasgow update add event listener', prop);
+					if (debug>3) console.log('glasgow update add event listener', prop);
 				}
 				continue;
 			}
@@ -334,7 +338,7 @@ function mount(domParent, func) {
 				dom.setAttribute(prop, newVal);
 			}
 			domWrites++;
-			if (DEBUG>3) console.log('glasgow update set attribute', prop, newVal);
+			if (debug>3) console.log('glasgow update set attribute', prop, newVal);
 		}
 
 		for(let key in oldNode) {
@@ -347,7 +351,7 @@ function mount(domParent, func) {
 				dom.removeAttribute(key);
 			}
 			domWrites++;
-			if (DEBUG>3) console.log('glasgow update unset attribute', key);
+			if (debug>3) console.log('glasgow update unset attribute', key);
 		}
 
 		if (newNode.onrefresh) afterRefresh(newNode.onrefresh, context, {element:resolveDomPath(domPath), node:newNode});
@@ -357,12 +361,12 @@ function mount(domParent, func) {
 	
 	
 	function refresh() {
-		if (DEBUG && scheduled<0) console.warn("refresh triggered during refresh");
+		if (debug && scheduled<0) console.warn("refresh triggered during refresh");
 		if (scheduled<1) scheduled = setTimeout(refreshNow, 0);
 	}
 	
 	function refreshNow() {
-		if (DEBUG && scheduled < 0) console.error("recursive invocation?");
+		if (debug && scheduled < 0) console.error("recursive invocation?");
 		scheduled = -1;
 
 		let oldCurrent = currentInstance;
@@ -392,7 +396,7 @@ function mount(domParent, func) {
 			else domParent.appendChild(domRoot);
 		}
 
-		console.log('glasgow refreshed in', new Date() - startTime, 'ms, using', domWrites, 'DOM updates and', domReads, 'DOM reads'+(DEBUG ? " [disable DEBUG mode if you're interested in speed]" : ""));
+		console.log('glasgow refreshed in', new Date() - startTime, 'ms, using', domWrites, 'DOM updates and', domReads, 'DOM reads'+(debug ? " [use glasgow.setDebug(0) if you're interested in speed]" : ""));
 		
 		for(let i=0; i<afterRefreshArray.length; i+=3) {
 			afterRefreshArray[i](afterRefreshArray[i+1], afterRefreshArray[i+2]);
@@ -444,7 +448,7 @@ function mount(domParent, func) {
 				let el = path[i];
 				for(let j=i+1; j<=max; j++) {
 					el = el.childNodes[path[j]];
-					if (DEBUG && !el) throw new Error('invalid DOM path '+path);
+					if (debug && !el) throw new Error('invalid DOM path '+path);
 					path[j] = el;
 					domReads++;
 				}
@@ -476,7 +480,7 @@ function mount(domParent, func) {
 			if (tree._t==='kept') break; // not really part of the virtual DOM anymore
 			treeArray.push(tree, context);
 			if (--i < 0) {
-				if (DEBUG && treeArray[treeArray.length-2]._e !== event.target) console.error("event tree resolve failed", event.target, treeArray[treeArray.length-2]._e, indexes);
+				if (debug && treeArray[treeArray.length-2]._e !== event.target) console.error("event tree resolve failed", event.target, treeArray[treeArray.length-2]._e, indexes);
 				break;
 			}
 			tree = tree._c[indexes[i]];
@@ -600,7 +604,10 @@ function transition({element, from, to, time, easing, keep}) {
 	});
 }
 
+function setDebug(_debug) {
+	debug = 0|_debug;
+}
 
-let statics = {mount, NOT_HANDLED, transition, fadeIn, fadeOut};
+let statics = {mount, NOT_HANDLED, transition, fadeIn, fadeOut, setDebug};
 for(let k in statics) glasgow[k] = statics[k];
 
