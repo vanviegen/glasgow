@@ -432,10 +432,11 @@ function mount(domParent, func) {
 	}
 	
 	function destroy(node, props, element) {
+		if (typeof node === 'string') return;
 		if (node._a) return destroy(node._a, node, element);
 		let children = node._c;
 		for(let i = 0; i < children.length; i++) {
-			if (typeof children[i] !== 'string') destroy(children[i], props);
+			destroy(children[i], props);
 		}
 		if (node.onremove) return node.onremove(props, {node, element, parentStable:!!element});
 	}
