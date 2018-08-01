@@ -30,7 +30,7 @@ Some disadvantages:
 
 ## Example usage
 
-```javascript
+```jsx
 // First we'll instruct the JSX compiler to generate `glasgow(..)` calls:
 /** @jsx glasgow */
 
@@ -41,8 +41,9 @@ Some disadvantages:
 let list = [];
 
 
-// This is the component for list items. Components are just functions.
-// A component gets a (JSX) attributes object and an array of children (which // we're ignoring here).
+// This is the component for a single ToDo-item. Components are just functions.
+// A component gets a (JSX) attributes object and an array of children (which
+// we're ignoring here).
 function Item(props, children) {
   return <li>
     <div class="text">{props.key}</div>
@@ -65,7 +66,7 @@ function ToDo(props, children) {
   // The JavaScript `map` function is used to translate the list of ToDo-items 
   // into a list of virtual DOM elements.
   // `key` is kind of a special attribute, as it's also used to match-up old
-  // elements with new elements when doing a refresh.
+  // elements with new elements when doing a refresh. (See: Reconciliation.)
   return <main>
     <h1>Mandatory ToDo example</h1>
     <ul>
@@ -75,9 +76,9 @@ function ToDo(props, children) {
     <input type="button" value="Add" onclick={addItem} />
   </main>;
   // We're binding the text input to `$newItem`, meaning it is synced with
-  // `props.$newItem`.
+  // `props.$newItem`. (See: Bindings.)
   // The $-sign indicates that this is a state-variable, which means that its
-  // value is kept when redrawing.
+  // value is kept when redrawing. (See: Component state.)
 }
 
 function addItem(info) {
@@ -103,13 +104,13 @@ Apart from installing and importing this library, you'll need to setup *babel* t
 
 This is the function obtained by importing glasgow.
 
-```javascript
+```jsx
 const glasgow = require('glasgow');
 ```
 
 Or
 
-```javascript
+```jsx
 import glasgow from 'glasgow';
 ```
 
@@ -133,7 +134,7 @@ The function returns a virtual DOM node.
 
 ##### Example
 
-```javascript
+```jsx
 function MyLink(props, children) {
   return glasgow('a', {
     href: 'https://github.com/vanviegen/glasgow',
@@ -156,11 +157,11 @@ Mount the component to the DOM, returning a glasgow instance. (See: Instances.)
 
 ##### Examples
 
-```javascript
+```jsx
 let instance = glasgow.mount(document.body, MyComponent);
 ```
 
-```javascript
+```jsx
 let instance = glasgow.mount(document.body, <MyComponent foo={bar} />);
 ```
 
@@ -180,7 +181,7 @@ This function returns a Promise, used to tell glasgow when the element can be re
 
 The effect wil only happen when the element's parent is *not* being removed in this refresh.
 
-```javascript
+```jsx
 let list = [];
 function addItem() {
 	list.push(0|Math.random()*10);
@@ -202,21 +203,18 @@ function List() {
 glasgow.mount(document.body, List);
 ```
 
-
 #### glasgow.transition({element, from, to, time, easing, keep})
 
 A helper function to perform DOM transitions.
 
 - `element`: The DOM element to work on.
 - `from`: An array of style properties to be set immediately.
-- `to`: An array of style properties to be set after a 0ms delay, triggering transition. Also, for each of the properties in this object, a `transition` clause is set.
-- `time`: Duration of the transition in ms. Default to `350`.
-- `easing`: Easing function string. Defaults to `"ease-out"`.
+- `to`: An array of style properties to be set after a 0ms delay, triggering transition. A special value of `"original"` can be used, to set a property to what is was before `to` was applied.
+- `time`: Duration of the transition in ms. Defaults to `400`.
+- `easing`: Easing function string. Defaults to `"ease"`. The transition effect is set for all style properties for the duration of the effect.
 - `keep`: Unless this value is true, all properties will be restored to their original states when the transition is done.
 
 `transition(..)` returns a Promise that is fulfilled shortly after the transition is ready. When an `onremove` event handler returns a Promise, glasgow will keep the DOM element around until fulfillment.
-
-
 
 #### Proxy functions to the current instance
 
@@ -254,23 +252,57 @@ Returns the currently rendered virtual DOM tree. (See: Virtual DOM nodes.) This 
 
 
 
+### Reconciliation
+
+Reconciliation is the process of trying to match up elements in the new virtual DOM with elements from the old virtual DOM. Glasgow uses some heuristics to try to get this mostly right. Getting this wrong can have multiple nasty consequences:
+
+- UI updates are slower than they could be, because larger parts of the DOM need to be recreated.
+- Local component state will be lost when they or any of their ancestors cannot be properly matched.
+- User input in for example `input` elements can be lost of it is not synced with global state.
+- Even if user input is synced to global state, focus and cursor position may change while the user is typing.
+
+To force glasgow to get matching right, use `key` properties on components and elements that may jump around (or whose siblings jump around, appear or disappear).
+
+Especially for dynamically updating lists, this is crucial. In this case, you will usually want to use some sort of primary key (say: a user id) as the `key`. Example:
+
+```jsx
+function MyListComponent(props) {
+	return <ul>
+		{props.list.map(item => <MyItemComponent key={item.id} item={item} />)}
+	</ul>
+}
+```
+
+When a `key` is specified, the element or component will *never* be matched to one that does not have the same key. *Unless* the key value starts with a `'~'` character (tilde). In that case the key is interpreted as only a hint that may be ignored. This can be useful when working with data that does not have (and cannot have) any form of primary key. You can use your *data value* as a `key` in order to still correctly track most changes. Example:
+
+```jsx
+function MyListComponent(props) {
+	return <ul>
+		{props.list.map(item => <MyItemComponent key={"~"+JSON.stringify(item)} item={item} />)}
+	</ul>
+}
+```
+
+Note that keys are only matched (and thus only need to be unique) *within* a parent. 
+
+
+
 ### Event handlers
 
 Events can be registered on any HTML virtual DOM node (meaning: *not* on components) using `on...` attributes with functions as values. For example:
 
-```javascript
+```jsx
 <div onclick={handler}>Click me</div>
 ```
 
 Event handlers receive arguments like this:
 
-```javascript
+```jsx
 function handler(props, {event, element, node}) { ... }
 ```
 
 Where..
 - `props` is the properties object of the component containing this DOM element.
-- 
 - `event` is the DOM event.
 - `element` is the DOM element that received the event.
 - `node` is the virtual DOM node (containing the attributes) for the DOM element that received the event.
@@ -283,38 +315,36 @@ As glasgow uses event delegation, `addEventListener` will only be called once pe
 
 Because of this, having lots of event handlers in your tree will not require them to be reattached on every refresh, even when you're creating new bindings or new function instances in each refresh.
 
-#### oncreate *(unstable)*
+#### oncreate *(experimental)*
 
 `oncreate` is a special case event, as it is not a DOM event. It is fired right after the refresh has performed all required DOM updates, but before returning control back to the browser.
 
 Event handlers receive arguments like this:
 
-```javascript
+```jsx
 function createHandler(props, {element, node, parentStable}) { ... }
 ```
 
 Where...
 - `props` is the properties object of the component containing this DOM element.
-- 
 - `element` is the DOM element that was created.
 - `node` is the virtual DOM node (containing the attributes) for the new DOM element.
 - `parentStable` is a boolean indicating whether the parent DOM element already existed earlier (`true`) or was also just created in this refresh (`false`). This is mostly useful for fade-in transitions and such.
 
-This method is marked **unstable** because I'm considering changing semantics on this in the at some point.
+This method is marked **experimental** because I'm considering changing semantics on this in the at some point.
 
-#### onremove *(unstable)*
+#### onremove *(experimental)*
 
 `onremove` is a special case event, as it is not a DOM event. It is fired right before an element is removed from the DOM.
 
 Event handlers receive arguments like this:
 
-```javascript
+```jsx
 function removeHandler(props, {node, parentStable, element}) { ... }
 ```
 
 Where...
 - `props` is the properties object of the component containing this DOM element.
-- 
 - `node` is the virtual DOM node (containing the attributes) for the to-be-removed DOM element.
 - `parentStable` is a boolean indicating whether the parent element will remain in the DOM (`true`) or will also be removed during this refresh (`false`). This is mostly useful for fade-out transitions and such.
 - `element` is the DOM element that is to be removed, but only when `parentStable == true`. **Otherwise it is null!**
@@ -322,7 +352,7 @@ Where...
 When `parentStable == true` and the event handler returns a Promise, the element will be preserved in the DOM until the Promise resolves. This comes in handy for fade-out transitions, and such. (See: Transitions.)
 
 
-This method is marked **unstable** because I'm considering changing semantics on this in the at some point.
+This method is marked **experimental** because I'm considering changing semantics on this in the at some point.
 
 #### onrefresh
 
@@ -330,17 +360,16 @@ This method is marked **unstable** because I'm considering changing semantics on
 
 Event handlers receive arguments like this:
 
-```javascript
+```jsx
 function refreshHandler(props, {node, element}) { ... }
 ```
 
 Where...
 - `element` is the DOM element.
-- 
 - `node` is the virtual DOM node (containing the attributes) for the DOM element.
 - `props` is the properties object of the component containing this DOM element.
 
-This method is marked **unstable** because I'm considering changing semantics on this in the at some point. Perhaps an `onupdate` event, only firing when changes to the element or its children have been made, would be more useful.
+This method is marked **experimental** because I'm considering changing semantics on this in the at some point. Perhaps an `onupdate` event, only firing when changes to the element or its children have been made, would be more useful.
 
 
 
@@ -350,7 +379,7 @@ There are two types of virtual DOM nodes:
 
 - Objects returned by the `glasgow(...)` function. These are in fact just the properties objects, augmented with some underscore-prefixed keys that are implementation details to glasgow. You'll find keys like `_t` for tag, `_c` for children, and `_a` for the materialized tree of a component. You should not rely on these, as their semantics may change in minor releases.
 
-- Plain old JavaScript string, which are rendered to DOM `TextNode`s.
+- Plain old JavaScript strings, which are rendered to DOM `TextNode`s.
 
 
 
@@ -367,7 +396,7 @@ Components are just JavaScript functions that return a virtual DOM node. They re
 
 State variables can be (but do not need to) specified as attributes by the caller like any other property. The difference with other properties, is that when you change their value (for instance from within a component function, a event handler or using a binding), glasgow tries to preserve their value across refreshes. For example:
 
-```javascript
+```jsx
 function RefreshCounter(props) {
   if (!props.$count) props.$count = 1;
   return (props.$count++).toString();
@@ -383,7 +412,7 @@ But how does glasgow know when the preserve state, and when a component that is 
 
 When it is determined that state can safely be preserved, the old `props` object is moved into the new refresh's tree. This allows you to do things like this without refreshes during the fetch causing problems:
 
-```javascript
+```jsx
 function Fetcher(props) {
   if (!props.$fetching) {
     props.$fetching = true;
@@ -397,19 +426,19 @@ function Fetcher(props) {
 
 
 
-### Bindings *(incomplete)*
+### Bindings *(experimental)*
 
 Bindings are a shortcut for setting an `oninput` event handler and a initial value on an HTML `input` (or `textarea`, or `select`) element. This creates a two-way binding between the application data and the UI view.
 
 To bind an input to the `$example` local state property, one would use:
 
-```javascript
+```jsx
 <input binding="$example" />
 ```
 
 In many cases, it would be desirable to directly alter higher level state. When this state is referred to by component properties, we can bind to it by using a path array:
 
-```javascript
+```jsx
 function UserNameEditor(props) {
   // This binds the input to props.users[props.userId]
   return <input binding={["users",props.userId]} />
@@ -421,13 +450,13 @@ let node = <UserNameEditor users={users}, userId={1} />;
 
 It is also possible to bind to state that is not (indirectly) referred to by the components properties. Just give you state array or objects as the first element in the binding array. Like this:
 
-```javascript
+```jsx
 let list = [];
 function ListItem(props) {
 	return <input binding={[list, props.itemId]} />
 }
 ```
 
-Bindings support should be considered **incomplete**, as not all input types are supported yet. At least `textarea` and `input` types `text`, `password`, `checkbox` and `number` *do* work. Feel free to file bugs (or pull requests!) for other types if you need them.
+Bindings support should be considered **experimental**, as not all input types are supported yet. At least `textarea` and `input` types `text`, `password`, `checkbox` and `number` *do* work. Feel free to file bugs (or pull requests!) for other types if you need them.
 
 
