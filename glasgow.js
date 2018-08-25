@@ -172,6 +172,11 @@ function mount(domParent, func) {
 				// the top-level tag or key for this component changed
 				destroy(oldNode._a, oldNode);
 				newNode._a = materialized;
+				if (domPathPos===1) {
+					console.log('glasgow swap root element');
+					domRoot = null;
+					delegatedTypes = {};
+				}
 				resolveDomPath(domPath,domPathPos-1).replaceChild(create(materialized, newNode, true), resolveDomPath(domPath));
 				domWrites++;
 				if (debug>3) console.log('glasgow update replace child', resolveDomPath(domPath));
@@ -442,7 +447,7 @@ function mount(domParent, func) {
 	}
 	
 	function resolveDomPath(path,limit) {
-		let max = (limit || path.length) - 1;
+		let max = (limit==null ? path.length : limit) - 1;
 		for(let i = max; i>=0; i--) {
 			if (typeof path[i] !== 'number') {
 				// we found a dom element!
@@ -456,6 +461,9 @@ function mount(domParent, func) {
 				return el;
 			}
 		}
+		// limit === 0, we want the parent element
+		domReads++;
+		return path[0].parentNode;
 	}
 	
 	
@@ -492,20 +500,23 @@ function mount(domParent, func) {
 		console.log('glasgow event', type);
 		
 		let element = event.target;
+		let doRefresh = false;
 		for (let i = treeArray.length-2; i >= 0; i-=2) {
 			let node = treeArray[i];
 			let func = node[type];
 			if (func) {
+				doRefresh = true;
 				let props = treeArray[i+1];
 				let res = func(props, {element, event, node});
 				if (res !== glasgow.NOT_HANDLED) {
 					event.preventDefault();
 					event.stopPropagation();
-					return refreshNow();
+					break;
 				}
 			}
 			element = element.parentNode;
 		}
+		if (doRefresh) refreshNow();
 	}
 	
 	function bindingEventHandler(props, {node, element}) {
