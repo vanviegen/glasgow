@@ -3,29 +3,36 @@ Glasgow
 
 An easy-to-use JavaScript library for building user interfaces in a *functional reactive* way, using JSX.
 
-Some advantages:
+* [Why glasgow](#why-glasgow)
+* [Example usage](#example-usage)
+* [Installation](#installation)
+* [Reference manual](#reference-manual)
 
-- *Easy* to learn, as it is low on concepts.
 
-- *Easy* state mangement: you can store state anywhere you like. There's no `setState`. The UI will refresh automatically after handling events, or when you tell it to. Component-local state is supported as well, and is just as easy.
+## Why Glasgow?
+
+#### Reasons to use Glasgow:
+
+- *Easy* to learn -- there are not many concepts to understand.
+
+- *Easy* state mangement -- you can store state anywhere you like. There's no `setState`. The UI will refresh automatically after handling events, or when you tell it to. Component-local state is supported as well, and is just as easy.
 
 - *Easy* event handling.
-  - Binding is usually not required, as handlers will be provided with relevant context by default.
+  - Function binding is usually not required, as handlers will be provided with relevant context by default.
   - Event delegation, meaning performance won't suffer much if you *do* need to bind or create new function instances on each refresh.
-  - Two-way bindings, when you want them.
+  - Two-way bindings, when you want it.
 
 - *Tiny*. Less than 3kb minified and gzipped. Built from a single source file that is small enough to read. No dependencies.
 
 - *Fast*, in most cases, probably, I guess. :-) No benchmarks yet, though.
 
-Some disadvantages:
+#### Reasons not to use Glasgow:
 
-- Experimental. You probably shouldn't build your business around this.
+- It's experimental. You probably shouldn't build your business around this.
 
 - Only the basics. No routers, no server-side rendering, no ready-to-use components.
 
 - If you want to use JSX, you need to transpile your source code.
-
 
 
 ## Example usage
@@ -99,6 +106,35 @@ Apart from installing and importing this library, you'll need to setup *babel* t
 
 
 ## Reference manual
+
+ * [The glasgow module](#the-glasgow-module)
+    * [glasgow(tag, props, ..children)](#glasgowtag-props-children)
+       * [Example](#example)
+    * [glasgow.mount(domParent, component)](#glasgowmountdomparent-component)
+       * [Examples](#examples)
+    * [glasgow.setDebug(debug)](#glasgowsetdebugdebug)
+    * [glasgow.fadeIn(props, {element, parentStable})](#glasgowfadeinprops-element-parentstable)
+    * [glasgow.fadeOut(props, {element, parentStable})](#glasgowfadeoutprops-element-parentstable)
+    * [glasgow.transition({element, from, to, time, easing, keep})](#glasgowtransitionelement-from-to-time-easing-keep)
+    * [Proxy functions to the current instance](#proxy-functions-to-the-current-instance)
+ * [Instances](#instances)
+    * [instance.refresh()](#instancerefresh)
+    * [instance.refreshNow()](#instancerefreshnow)
+    * [instance.refreshify(func)](#instancerefreshifyfunc)
+    * [instance.fetch(...)](#instancefetch)
+    * [instance.unmount()](#instanceunmount)
+    * [instance.getTree()](#instancegettree)
+ * [Reconciliation](#reconciliation)
+ * [Event handlers](#event-handlers)
+    * [Event delegation](#event-delegation)
+    * [oncreate <em>(experimental)</em>](#oncreate-experimental)
+    * [onremove <em>(experimental)</em>](#onremove-experimental)
+    * [onrefresh](#onrefresh)
+ * [Virtual DOM nodes](#virtual-dom-nodes)
+ * [Components](#components)
+    * [Component state](#component-state)
+ * [Bindings <em>(experimental)</em>](#bindings-experimental)
+
 
 ### The glasgow module
 
@@ -413,13 +449,13 @@ function RefreshCounter(props) {
 ```
 This example increments the number shown every time glasgow refreshes the UI. Of course, this kind-of breaks the one-way flow of information that makes reactive functional UI programming so easy to reason about. A rule of thumb is that you should only use local state for augmenting the information you received by means of regular `props`. For example, one can load additional information (say the last-online-time for `props.userId`) from a server and store it as `props.$lastOnline`.
 
-But how does glasgow know when the preserve state, and when a component that is generated in a refresh is actually ment to operate on different data?
+But how does glasgow distinguish cases where it should preserve state, from cases where a component generated in a refresh is actually ment to operate on different data?
 
 - The first step is that glasgow must be able to match the component and all its ancestor elements and components to their versions in the previous refresh. It does this by matching tags and components based on their position within the parent, or based on keys when available. (This matching is not only done for preserving state, but is also crucial in preventing having to redraw the entire interface on every refresh.) If you're loosing state when elements are moving around in your user interface, it may help to add some keys to the moving elements and components.
 
-- But even after matching a component with a component of the same type from the previous refresh, state will not always be preserved. This will only happen when all of the `props` (except those starting with `$` or `_`) are *exactly* identical. A property referring to a different object or array that does have the same contents does *not* count as identical.
+- But even after matching a component with a component of the same type from the previous refresh, state will not always be preserved. This will only happen when all of the `props` (except those starting with `$` or `_`) are *exactly* identical. A property referring to a different object (or array) instance does *not* count as identical, even if it has the same content.
 
-When it is determined that state can safely be preserved, the old `props` object is moved into the new refresh's tree. This allows you to do things like this without refreshes during the fetch causing problems:
+When it is determined that state can be preserved safely, the old `props` object is moved into the new refresh's tree. This allows you to do things like this, without refreshes that may occur during the fetch causing problems:
 
 ```jsx
 function Fetcher(props) {

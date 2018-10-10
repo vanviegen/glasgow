@@ -249,7 +249,7 @@ function mount(domParent, func) {
 					let idx, newKey = newChild.key;
 					if (newKey && (idx = oldKeys[newKey]) && canPatch(newChild, oldChildren[idx])) {
 						// Okay, we can recycle a keyed object
-						childDom = oldElements[idx];
+						childDom = oldElements[idx-start];
 						oldElements[idx-start] = undefined;
 						newChildren[i] = patch(newChild, oldChildren[idx], [childDom], context);
 					}
@@ -331,7 +331,11 @@ function mount(domParent, func) {
 			
 			let newVal = newNode[prop];
 			let oldVal = oldNode[prop];
-			if (newVal == null || newVal === oldVal) continue;
+			if (newVal === oldVal) continue;
+			if (newVal == null) {
+				if (oldVal == null) continue;
+				newVal = '';
+			}
 
 			dom = dom || resolveDomPath(domPath);
 			if (prop === 'checked' || prop === 'value' || prop === 'className' || prop === 'selectedIndex') {
