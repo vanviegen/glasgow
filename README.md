@@ -24,13 +24,15 @@ An easy-to-use JavaScript library for building user interfaces in a *functional 
 
 - *Tiny*. Less than 3kb minified and gzipped. Built from a single source file that is small enough to read. No dependencies.
 
-- *Fast*, in most cases, probably, I guess. :-) No benchmarks yet, though.
+- *Fast* enough. Rendering seems [about as fast as React](https://www.vanviegen.net/glasgow/benchmark.html). Startup is a lot speedier.
 
 #### Reasons not to use Glasgow:
 
 - It's experimental. You probably shouldn't build your business around this.
 
 - Only the basics. No routers, no server-side rendering, no ready-to-use components.
+
+- No community. Probably not a lot of support from me either.
 
 - If you want to use JSX, you need to transpile your source code.
 
