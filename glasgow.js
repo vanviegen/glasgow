@@ -125,7 +125,8 @@ function mount(domParent, func) {
 		if (!domRoot) domRoot = el; // this can't wait; needed for event delegation
 		domWrites++;
 		if (debug>3) console.log('glasgow update create', tag);
-		if (newNode.oncreate) afterRefresh(newNode.oncreate, props, {element:el, node:newNode, parentStable});
+		let func = newNode.oncreate || newNode.create;
+		if (typeof func==='function') afterRefresh(func, el, [{type:'create', parentStable}, props, newNode]);
 		patch(newNode, NON_TOP_EMPTY_NODE, [el], props);
 		return el;
 	}
@@ -318,18 +319,19 @@ function mount(domParent, func) {
 		for(let prop in newNode) {
 			if (prop==='key' || prop==='binding' || prop[0]==='_') continue;
 			
-			if (prop[0]==='o' && prop[1]==='n') {
+			let newVal = newNode[prop];
+			if (typeof newVal === 'function') {
+				if (prop.substr(0,2)==='on') prop = prop.substr(2);
 				if (!delegatedTypes[prop]) {
 					delegatedTypes[prop] = true;
 					console.log('glasgow delegating event type', prop);
-					domRoot.addEventListener(prop.substr(2), delegator);
+					domRoot.addEventListener(prop, delegator);
 					domWrites++;
 					if (debug>3) console.log('glasgow update add event listener', prop);
 				}
 				continue;
 			}
 			
-			let newVal = newNode[prop];
 			let oldVal = oldNode[prop];
 			if (newVal === oldVal) continue;
 			if (newVal == null) {
@@ -363,7 +365,8 @@ function mount(domParent, func) {
 			if (debug>3) console.log('glasgow update unset attribute', key);
 		}
 
-		if (newNode.onrefresh) afterRefresh(newNode.onrefresh, context, {element:resolveDomPath(domPath), node:newNode});
+		let func = newNode.onrefresh || newNode.refresh;
+		if (typeof func==='function') afterRefresh(func, resolveDomPath(domPath), [{type:"refresh"}, context, newNode]);
 		
 		return newNode;
 	}
@@ -408,7 +411,7 @@ function mount(domParent, func) {
 		console.log('glasgow refreshed in', new Date() - startTime, 'ms, using', domWrites, 'DOM updates and', domReads, 'DOM reads'+(debug ? " [use glasgow.setDebug(0) if you're interested in speed]" : ""));
 		
 		for(let i=0; i<afterRefreshArray.length; i+=3) {
-			afterRefreshArray[i](afterRefreshArray[i+1], afterRefreshArray[i+2]);
+			afterRefreshArray[i].apply(afterRefreshArray[i+1], afterRefreshArray[i+2]);
 		}
 		afterRefreshArray.length = 0;
 
@@ -447,7 +450,8 @@ function mount(domParent, func) {
 		for(let i = 0; i < children.length; i++) {
 			destroy(children[i], props);
 		}
-		if (node.onremove) return node.onremove(props, {node, element, parentStable:!!element});
+		let func = node.onremove || node.remove;
+		if (typeof func==='function') return func.call(element, {type: "remove", parentStable: !!element}, props, node);
 	}
 	
 	function resolveDomPath(path,limit) {
@@ -500,18 +504,19 @@ function mount(domParent, func) {
 		}
 		
 
-		let type = 'on' + event.type;
+		let type = event.type;
+		let ontype = 'on'+event.type;
 		console.log('glasgow event', type);
 		
 		let element = event.target;
 		let doRefresh = false;
 		for (let i = treeArray.length-2; i >= 0; i-=2) {
 			let node = treeArray[i];
-			let func = node[type];
-			if (func) {
+			let func = node[ontype] || node[type];
+			if (typeof func==='function') {
 				doRefresh = true;
 				let props = treeArray[i+1];
-				let res = func(props, {element, event, node});
+				let res = func.call(element, event, props, node);
 				if (res !== glasgow.NOT_HANDLED) {
 					event.preventDefault();
 					event.stopPropagation();
@@ -523,10 +528,10 @@ function mount(domParent, func) {
 		if (doRefresh) refreshNow();
 	}
 	
-	function bindingEventHandler(props, {node, element}) {
-		let val = (node.type === 'checkbox') ? (node.checked = element.checked) :
-							(node.type === 'number') ? parseFloat(node.value = element.value) :
-							(node.value = element.value);
+	function bindingEventHandler(event, props, node) {
+		let val = (node.type === 'checkbox') ? (node.checked = this.checked) :
+							(node.type === 'number') ? parseFloat(node.value = this.value) :
+							(node.value = this.value);
 		writeBinding(node.binding, props, val);
 	}
 	
@@ -542,17 +547,17 @@ function mount(domParent, func) {
 	}
 	
 	// Called when we're done updating the DOM
-	function afterRefresh(func, arg1, arg2) {
-		afterRefreshArray.push(func, arg1, arg2);
+	function afterRefresh(func, self, args) {
+		afterRefreshArray.push(func, self, args);
 	}
 	
 }
 
 
 
-function fadeIn(props, {element, parentStable}) {
-	if (parentStable) transition({
-		element,
+function fadeIn(event) {
+	if (event.parentStable) transition({
+		element: this,
 		from: {
 			height: "1px",
 			opacity: 0,
@@ -563,7 +568,7 @@ function fadeIn(props, {element, parentStable}) {
 			paddingBottom: "0px"
 		},
 		to: {
-			height: element.offsetHeight+'px',
+			height: this.offsetHeight+'px',
 			opacity: 1,
 			marginTop: "original",
 			marginBottom: "original",
@@ -573,12 +578,12 @@ function fadeIn(props, {element, parentStable}) {
 	});
 }
 
-function fadeOut(props, {element, parentStable}) {
-	if (parentStable) return transition({
-		element,
+function fadeOut(event) {
+	if (event.parentStable) return transition({
+		element: this,
 		from: {
 			overflow: 'hidden',
-			height: element.offsetHeight+'px'
+			height: this.offsetHeight+'px'
 		},
 		to: {
 			height: '0px',

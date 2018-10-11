@@ -163,7 +163,7 @@ The function returns a virtual DOM node.
 - `props` is an optional JavaScript object containing HTML attributes. Some special cases:
   - `className`, `checked`, `value` and `selectedIndex` are DOM properties instead of HTML attributes. `null` values are ignored.
   - `style` can receive a style properties object instead of a style string.
-  - Attributes starting with `on` are assumed to be event handlers. (See: Event handlers.)
+  - When the attribute value is a function it is assumed to be an event handlers. (See: Event handlers.)
   - `key`, `binding` and attributes starting with `_` are not set as HTML attributes.
   
   Of course, when `tag` is a function, none of this applies, and the `props` are just passed as the first argument to this component function.
@@ -287,7 +287,7 @@ Just a little utility that returns a function wrapping `func`. It will make sure
 
 #### instance.fetch(...)
 
-Just a convenient `refreshify(window.fetch)`. If you need to polyfill the `fetch` API (you're support Internet Explorer), make sure the polyfill is loaded before you `mount`.
+Just a convenient `refreshify(window.fetch)`. If you need to polyfill the `fetch` API (you're supporting Internet Explorer), make sure the polyfill is loaded before you `mount`.
 
 #### instance.unmount()
 
@@ -336,7 +336,13 @@ Note that keys are only matched (and thus only need to be unique) *within* a par
 
 ### Event handlers
 
-Events can be registered on any HTML virtual DOM node (meaning: *not* on components) using `on...` attributes with functions as values. For example:
+Events can be registered on any HTML virtual DOM node (meaning: *not* on components) using attributes with functions as values. For example:
+
+```jsx
+<div click={handler}>Click me</div>
+```
+
+Prefixing `on` to the event name is optional. Therefore, the following example is equivalent:
 
 ```jsx
 <div onclick={handler}>Click me</div>
@@ -345,13 +351,13 @@ Events can be registered on any HTML virtual DOM node (meaning: *not* on compone
 Event handlers receive arguments like this:
 
 ```jsx
-function handler(props, {event, element, node}) { ... }
+function handler(event, props, node) { ... }
 ```
 
 Where..
-- `props` is the properties object of the component containing this DOM element.
+- `this` is the DOM element that received the event.
 - `event` is the DOM event.
-- `element` is the DOM element that received the event.
+- `props` is the properties object of the component containing this DOM element.
 - `node` is the virtual DOM node (containing the attributes) for the DOM element that received the event.
 
 When the event handler returns anything other than `glasgow.NOT_HANDLED`, the event will not propagate further up the tree, and `preventDefault()` will be called on it.
@@ -369,14 +375,16 @@ Because of this, having lots of event handlers in your tree will not require the
 Event handlers receive arguments like this:
 
 ```jsx
-function createHandler(props, {element, node, parentStable}) { ... }
+function createHandler(event, props, node) { ... }
 ```
 
 Where...
+- `this` is the DOM element that was created.
+- `event` object, containg:
+	- `type` is `"create"`
+	- `parentStable` is a boolean indicating whether the parent DOM element already existed earlier (`true`) or was also just created in this refresh (`false`). This is mostly useful for fade-in transitions and such.
 - `props` is the properties object of the component containing this DOM element.
-- `element` is the DOM element that was created.
 - `node` is the virtual DOM node (containing the attributes) for the new DOM element.
-- `parentStable` is a boolean indicating whether the parent DOM element already existed earlier (`true`) or was also just created in this refresh (`false`). This is mostly useful for fade-in transitions and such.
 
 This method is marked **experimental** because I'm considering changing semantics on this in the at some point.
 
@@ -387,14 +395,16 @@ This method is marked **experimental** because I'm considering changing semantic
 Event handlers receive arguments like this:
 
 ```jsx
-function removeHandler(props, {node, parentStable, element}) { ... }
+function removeHandler(event, props, node) { ... }
 ```
 
 Where...
+- `this` is the DOM element that is to be removed, but only when `parentStable == true`. **Otherwise it is null!**
+- `event` object, containg:
+	- `type` is `"remove"`
+	- `parentStable` is a boolean indicating whether the parent element will remain in the DOM (`true`) or will also be removed during this refresh (`false`). This is mostly useful for fade-out transitions and such.
 - `props` is the properties object of the component containing this DOM element.
 - `node` is the virtual DOM node (containing the attributes) for the to-be-removed DOM element.
-- `parentStable` is a boolean indicating whether the parent element will remain in the DOM (`true`) or will also be removed during this refresh (`false`). This is mostly useful for fade-out transitions and such.
-- `element` is the DOM element that is to be removed, but only when `parentStable == true`. **Otherwise it is null!**
 
 When `parentStable == true` and the event handler returns a Promise, the element will be preserved in the DOM until the Promise resolves. This comes in handy for fade-out transitions, and such. (See: Transitions.)
 
@@ -408,13 +418,15 @@ This method is marked **experimental** because I'm considering changing semantic
 Event handlers receive arguments like this:
 
 ```jsx
-function refreshHandler(props, {node, element}) { ... }
+function refreshHandler(event, props, node) { ... }
 ```
 
 Where...
-- `element` is the DOM element.
-- `node` is the virtual DOM node (containing the attributes) for the DOM element.
+- `this` is the DOM element.
+- `event` object, containing:
+	- `type` is `"refresh"`
 - `props` is the properties object of the component containing this DOM element.
+- `node` is the virtual DOM node (containing the attributes) for the DOM element.
 
 This method is marked **experimental** because I'm considering changing semantics on this in the at some point. Perhaps an `onupdate` event, only firing when changes to the element or its children have been made, would be more useful.
 
