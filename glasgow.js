@@ -8,7 +8,9 @@ const NON_TOP_EMPTY_NODE = {_c: NON_TOP_EMPTY_CHILDREN};
 
 const NOT_HANDLED = {}; // constant that can be returned by event handlers
 
-let currentInstance; // set during event handlers and component rendering
+let instances = [];
+
+let fetch = window.fetch ? window.fetch.bind(window) : null;
 
 let debug = 1;
 	// 0. production build
@@ -75,15 +77,25 @@ function readBinding(binding, props) {
 	return obj[key];
 }
 
-function createProxy(funcName) {
+function refreshify(func) {
+	let refreshNow = this.refreshNow;
+	
+	function refreshEventResult (result) {
+		refreshNow();
+		if (result && typeof result.then === 'function') {
+			result.then(refreshEventResult);
+		}
+		return result;
+	}
+
 	return function() {
-		if (!currentInstance) throw new Error("this glasgow proxy can only be used from components and glasgow event handlers");
-		return currentInstance[funcName].apply(currentInstance, arguments);
+		return refreshEventResult(func.apply(this, arguments));
 	}
 }
 
 
-function mount(domParent, func) {
+
+function mount(domParent, rootFunc, rootProps = {}) {
 
 	let domRoot;
 	let treeRoot;
@@ -92,13 +104,11 @@ function mount(domParent, func) {
 	let afterRefreshArray = [];
 
 	let scheduled = 0;
-	let fetch = window.fetch ? refreshify(window.fetch.bind(window)) : null;
-	let instance = {refresh, refreshNow, unmount, refreshify, getTree, fetch};
+	let instance = {refresh, refreshNow, unmount, refreshify, getTree};
+	if (fetch) instance.fetch = instance.refreshify(fetch);
 
-	if (!glasgow.refresh) {
-		for(let k in instance) glasgow[k] = createProxy(k);
-	}
-	
+	instances.push(instance);
+
 	refreshNow();
 
 	return instance;
@@ -353,7 +363,7 @@ function mount(domParent, func) {
 		}
 
 		for(let key in oldNode) {
-			if (key[0]==='_' || (key[0]==='o' && key[1]==='n')) continue;
+			if (key[0]==='_' || typeof oldNode[key]==='function') continue;
 			if (newNode.hasOwnProperty(key)) continue;
 			dom = dom || resolveDomPath(domPath);	 
 			if (key === 'style' || key === 'checked' || key === 'value' || key === 'className') {
@@ -381,16 +391,8 @@ function mount(domParent, func) {
 		if (debug && scheduled < 0) console.error("recursive invocation?");
 		scheduled = -1;
 
-		let oldCurrent = currentInstance;
-		currentInstance = instance;
-		
 		let oldTree = treeRoot;
-		if (typeof func==='function') {
-			treeRoot = glasgow(func, {});
-		} else {
-			treeRoot = {};
-			for(let k in func) treeRoot[k] = func[k];
-		}
+		treeRoot = glasgow(rootFunc, rootProps);
 		
 		domReads = domWrites = 0;
 		let startTime = new Date();
@@ -415,30 +417,14 @@ function mount(domParent, func) {
 		}
 		afterRefreshArray.length = 0;
 
-		currentInstance = oldCurrent;
-		
 		if (scheduled===-1) scheduled = 0;
 	}
 	
-	function refreshify(func) {
-		return function() {
-			let oldCurrent = currentInstance;
-			currentInstance = instance;
-			let res = refreshEventResult(func.apply(this, arguments));
-			currentInstance = oldCurrent;
-			return res;
-		}
-	}
-	
-	function refreshEventResult (result) {
-		refreshNow();
-		if (result && typeof result.then === 'function') {
-			result.then(refreshEventResult);
-		}
-		return result;
-	}
 					
 	function unmount() {
+		let pos = instances.indexOf(this);
+		if (pos<0) throw new Error("not mountesd");
+		instances.splice(pos,1);
 		destroy(treeRoot, {}, domRoot);
 		domParent.removeChild(domRoot);
 	}
@@ -565,7 +551,13 @@ function fadeIn(event) {
 			marginTop: "0px",
 			marginBottom: "0px",
 			paddingTop: "0px",
-			paddingBottom: "0px"
+			paddingBottom: "0px",
+			boxSizing: "border-box",
+			width: this.offsetWidth+'px',
+			maxWidth: "none",
+			minWidth: "none",
+			maxHeight: "none",
+			minHeight: "none"
 		},
 		to: {
 			height: this.offsetHeight+'px',
@@ -583,7 +575,13 @@ function fadeOut(event) {
 		element: this,
 		from: {
 			overflow: 'hidden',
-			height: this.offsetHeight+'px'
+			height: this.offsetHeight+'px',
+			boxSizing: "border-box",
+			width: this.offsetWidth+'px',
+			maxWidth: "none",
+			minWidth: "none",
+			maxHeight: "none",
+			minHeight: "none"
 		},
 		to: {
 			height: '0px',
@@ -629,6 +627,22 @@ function setDebug(_debug) {
 	debug = 0|_debug;
 }
 
-let statics = {mount, NOT_HANDLED, transition, fadeIn, fadeOut, setDebug};
-for(let k in statics) glasgow[k] = statics[k];
+function getInstancesCaller(method) {
+	return function() {
+		for(let instance of instances) {
+			instance[method].apply(instance, arguments);
+		}
+	}
+}
+
+glasgow.mount = mount;
+glasgow.NOT_HANDLED = NOT_HANDLED;
+glasgow.transition = transition;
+glasgow.fadeIn = fadeIn;
+glasgow.fadeOut = fadeOut;
+glasgow.setDebug = setDebug;
+glasgow.refresh = getInstancesCaller('refresh');
+glasgow.refreshNow = getInstancesCaller('refreshNow');
+glasgow.refreshify = refreshify;
+if (fetch) glasgow.fetch = glasgow.refreshify(fetch);
 

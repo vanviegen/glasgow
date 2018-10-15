@@ -22,7 +22,7 @@ An easy-to-use JavaScript library for building user interfaces in a *functional 
   - Event delegation, meaning performance won't suffer much if you *do* need to bind or create new function instances on each refresh.
   - Two-way bindings, when you want it.
 
-- *Tiny*. Less than 3kb minified and gzipped. Built from a single source file that is small enough to read. No dependencies.
+- *Tiny*. About 4kb minified and gzipped. Built from a single source file that is small enough to read. No dependencies.
 
 - *Fast* enough. Rendering seems [about as fast as React](https://www.vanviegen.net/glasgow/benchmark.html). Startup is a lot speedier.
 
@@ -97,7 +97,7 @@ function addItem(info) {
 
 
 // And this is where we add the ToDo component to the DOM. Presto!
-tearea.mount(document.body, ToDo);
+glasgow.mount(document.body, ToDo);
 ```
 
 
@@ -186,21 +186,22 @@ glasgow('main', {},
 );
 ```
 
-#### glasgow.mount(domParent, component)
+#### glasgow.mount(domParent, func, props)
 
 Mount the component to the DOM, returning a glasgow instance. (See: Instances.)
 
 - `domParent` is just a DOM element to which a single child will be appended.
-- `component` is either a component function, or a virtual DOM.
+- `func` is a (component) function.
+- `props` is an optional properties array passed as the first arguments of `func`.
 
 ##### Examples
 
 ```jsx
-let instance = glasgow.mount(document.body, MyComponent);
+let instance = glasgow.mount(document.body, MyComponent, {list: [3,5,11], name: "Frank"});
 ```
 
 ```jsx
-let instance = glasgow.mount(document.body, <MyComponent foo={bar} />);
+let instance = glasgow.mount(document.body, props => <section class="hello" />);
 ```
 
 #### glasgow.setDebug(debug)
@@ -263,10 +264,21 @@ A helper function to perform DOM transitions.
 
 `transition(..)` returns a Promise that is fulfilled shortly after the transition is ready. When an `onremove` event handler returns a Promise, glasgow will keep the DOM element around until fulfillment.
 
-#### Proxy functions to the current instance
+#### glasgow.refresh()
 
-As a convenience, all functions of the glasgow instance currently refreshing or handling an event, are available on `glasgow` as well. So one could call `glasgow.unmount()` from an event handler, for instance.
+Does an `instance.refresh()` on all mounted glasgow instances.
 
+#### glasgow.refreshNow()
+
+Does an `instance.refreshNow()` on all mounted glasgow instances.
+
+#### glasgow.refreshify(func)
+
+Just a little utility that returns a function wrapping `func`. It will make sure `refresh()` gets called after every function invocation. And in case `func` returns a Promise, it'll fire again when the Promise is fulfilled. 
+
+#### glasgow.fetch(...)
+
+Just a convenient `glasgow.refreshify(window.fetch)`. If you need to polyfill the `fetch` API (you're supporting Internet Explorer), make sure the polyfill is loaded before you load glasgow.
 
 
 ### Instances
@@ -287,7 +299,7 @@ Just a little utility that returns a function wrapping `func`. It will make sure
 
 #### instance.fetch(...)
 
-Just a convenient `refreshify(window.fetch)`. If you need to polyfill the `fetch` API (you're supporting Internet Explorer), make sure the polyfill is loaded before you `mount`.
+Just a convenient `instance.refreshify(window.fetch)`. If you need to polyfill the `fetch` API (you're supporting Internet Explorer), make sure the polyfill is loaded before you load glasgow.
 
 #### instance.unmount()
 
