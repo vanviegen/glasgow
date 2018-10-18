@@ -64,7 +64,7 @@ function Item(props, children) {
 // bind the function, as `info` provides us access to the component's `props`,
 // among other things.
 function deleteItem(info) {
-  // We're just modifying regular JavaScript variables here. Glasgow will 
+  // We're just modifying regular JavaScript variables here. Glasgow will
   // refresh the UI after we return from the event handler.
   list.splice(list.indexOf(info.context.item), 1);
 }
@@ -72,7 +72,7 @@ function deleteItem(info) {
 
 // This is our main component.
 function ToDo(props, children) {
-  // The JavaScript `map` function is used to translate the list of ToDo-items 
+  // The JavaScript `map` function is used to translate the list of ToDo-items
   // into a list of virtual DOM elements.
   // `key` is kind of a special attribute, as it's also used to match-up old
   // elements with new elements when doing a refresh. (See: Reconciliation.)
@@ -136,7 +136,9 @@ Apart from installing and importing this library, you'll need to setup *babel* t
  * [Components](#components)
     * [Component state](#component-state)
  * [Bindings <em>(experimental)</em>](#bindings-experimental)
-
+    * [glasgow.readBinding(binding, props)](#glasgowreadbindingbinding-props)
+    * [glasgow.writeBinding(binding, props, value)](#glasgowwritebindingbinding-props-value)
+    * [glasgow.deleteBinding(binding, props)](#glasgowdeletebindingbinding-props)
 
 ### The glasgow module
 
@@ -165,7 +167,7 @@ The function returns a virtual DOM node.
   - `style` can receive a style properties object instead of a style string.
   - When the attribute value is a function it is assumed to be an event handlers. (See: Event handlers.)
   - `key`, `binding` and attributes starting with `_` are not set as HTML attributes.
-  
+
   Of course, when `tag` is a function, none of this applies, and the `props` are just passed as the first argument to this component function.
 
 - `children` is an optional array of (arrays of) virtual DOM nodes. `null` values are ignored.
@@ -179,7 +181,7 @@ function MyLink(props, children) {
     target: props.newWindow ? '_blank' : null,
   }, children);
 }
-  
+
 glasgow('main', {},
   glasgow('h1', {}, 'Welcome'),
   glasgow(MyLink, {newWindow: true}, 'Fork me here!')
@@ -274,7 +276,7 @@ Does an `instance.refreshNow()` on all mounted glasgow instances.
 
 #### glasgow.refreshify(func)
 
-Just a little utility that returns a function wrapping `func`. It will make sure `refresh()` gets called after every function invocation. And in case `func` returns a Promise, it'll fire again when the Promise is fulfilled. 
+Just a little utility that returns a function wrapping `func`. It will make sure `refresh()` gets called after every function invocation. And in case `func` returns a Promise, it'll fire again when the Promise is fulfilled.
 
 #### glasgow.fetch(...)
 
@@ -287,7 +289,7 @@ An instance object is returned by `glasgow.mount(..)`. It has these methods:
 
 #### instance.refresh()
 
-Schedules an asynchronous refresh. This happens automatically after handling a glasgow-event. In case data was modified at another time (for instance when arriving from the server), you'll want to call refresh. 
+Schedules an asynchronous refresh. This happens automatically after handling a glasgow-event. In case data was modified at another time (for instance when arriving from the server), you'll want to call refresh.
 
 #### instance.refreshNow()
 
@@ -295,7 +297,7 @@ Refresh synchronously.
 
 #### instance.refreshify(func)
 
-Just a little utility that returns a function wrapping `func`. It will make sure `refresh()` gets called after every function invocation. And in case `func` returns a Promise, it'll fire again when the Promise is fulfilled. 
+Just a little utility that returns a function wrapping `func`. It will make sure `refresh()` gets called after every function invocation. And in case `func` returns a Promise, it'll fire again when the Promise is fulfilled.
 
 #### instance.fetch(...)
 
@@ -342,7 +344,7 @@ function MyListComponent(props) {
 }
 ```
 
-Note that keys are only matched (and thus only need to be unique) *within* a parent. 
+Note that keys are only matched (and thus only need to be unique) *within* a parent.
 
 
 
@@ -530,4 +532,38 @@ function ListItem(props) {
 
 Bindings support should be considered **experimental**, as not all input types are supported yet. At least `textarea` and `input` types `text`, `password`, `checkbox` and `number` *do* work. Feel free to file bugs (or pull requests!) for other types if you need them.
 
+#### glasgow.readBinding(binding, props)
 
+Returns the value of a binding using a binding array.
+
+- `binding` A binding array.
+- `props` The properties object of the component containing this function.
+
+Example usage of a binding array:
+```jsx
+let object = {
+  foo : [
+    "bar"
+  ]
+}
+
+function MyComponent(props) {
+  let value = glasgow.readBinding([object, "foo", 0], binding)
+  return {value} // returns "bar"
+}
+```
+
+#### glasgow.writeBinding(binding, props, value)
+
+Sets the value of a binding using a binding array.
+
+- `binding` A binding array.
+- `props` The properties object of the component containing this function.
+- `value` The value to set.
+
+#### glasgow.deleteBinding(binding, props)
+
+Deletes a value of a binding using a binding array.
+
+- `binding` A binding array.
+- `props` The properties object of the component containing this function.

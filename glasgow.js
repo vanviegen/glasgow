@@ -41,7 +41,7 @@ export default function glasgow(tag, props) {
 	} else {
 		props._c = EMPTY_ARRAY;
 	}
-	
+
 	return props;
 };
 
@@ -74,12 +74,19 @@ function writeBinding(binding, props, value) {
 
 function readBinding(binding, props) {
 	let [obj,key] = resolveBinding(binding, props);
+	if (obj[key] == null && typeof binding[0] === 'object') return key;
 	return obj[key];
+}
+
+function deleteBinding(binding, props) {
+  let [obj,key] = resolveBinding(binding, props);
+  if (Array.isArray(obj)) obj.splice(binding[binding.length-1],1);
+  else delete obj[key];
 }
 
 function refreshify(func) {
 	let refreshNow = this.refreshNow;
-	
+
 	function refreshEventResult (result) {
 		refreshNow();
 		if (result && typeof result.then === 'function') {
@@ -130,7 +137,7 @@ function mount(domParent, rootFunc, rootProps = {}) {
 				if (debug) console.error("invalid virtual DOM node:", newNode);
 				return create(""+tag);
 		}
-		
+
 		let el = document.createElement(tag);
 		if (!domRoot) domRoot = el; // this can't wait; needed for event delegation
 		domWrites++;
@@ -140,7 +147,7 @@ function mount(domParent, rootFunc, rootProps = {}) {
 		patch(newNode, NON_TOP_EMPTY_NODE, [el], props);
 		return el;
 	}
-	
+
 	function canPatch(newNode, oldNode) {
 		let type = typeof newNode;
 		return type === typeof oldNode && (
@@ -150,13 +157,13 @@ function mount(domParent, rootFunc, rootProps = {}) {
 						 )
 					 );
 	}
-	
+
 	function patch(newNode, oldNode, domPath, context) {
 		if (debug) {
 			if (newNode._e) console.error('double patch', newNode, resolveDomPath(domPath));
 			if (oldNode._e && oldNode._e !== resolveDomPath(domPath)) console.error('dom element not properly matched with old node', oldNode, resolveDomPath(domPath));
 		}
-		
+
 		if (typeof newNode === 'string') {
 			if (newNode !== oldNode) {
 				resolveDomPath(domPath).textContent = newNode;
@@ -194,11 +201,11 @@ function mount(domParent, rootFunc, rootProps = {}) {
 			}
 			return newNode;
 		}
-		
+
 		if (debug) newNode._e = resolveDomPath(domPath);
-		
+
 		let dom;
-		
+
 		// Now let's sync some children
 		let newChildren = newNode._c;
 		let oldChildren = oldNode._c; // ==== NON_TOP_EMPTY_CHILDREN when parent is newly created
@@ -218,7 +225,7 @@ function mount(domParent, rootFunc, rootProps = {}) {
 			domPath[domPathPos] = oldLast-end;
 			newChildren[newLast-end] = patch(newChildren[newLast-end], oldChildren[oldLast-end], domPath, context);
 		}
-		
+
 		if (end+start !== newChildren.length || newChildren.length !== oldChildren.length) {
 			// We need to do some extra work to sort out the middle part.
 
@@ -321,14 +328,14 @@ function mount(domParent, rootFunc, rootProps = {}) {
 			}
 		}
 		domPath.length = domPathPos;
-		
-		
+
+
 		// That's it for the children. And now for the properties!
 		if (newNode.binding) bind(newNode, context);
-		
+
 		for(let prop in newNode) {
 			if (prop==='key' || prop==='binding' || prop[0]==='_') continue;
-			
+
 			let newVal = newNode[prop];
 			if (typeof newVal === 'function') {
 				if (prop.substr(0,2)==='on') prop = prop.substr(2);
@@ -341,7 +348,7 @@ function mount(domParent, rootFunc, rootProps = {}) {
 				}
 				continue;
 			}
-			
+
 			let oldVal = oldNode[prop];
 			if (newVal === oldVal) continue;
 			if (newVal == null) {
@@ -365,7 +372,7 @@ function mount(domParent, rootFunc, rootProps = {}) {
 		for(let key in oldNode) {
 			if (key[0]==='_' || typeof oldNode[key]==='function') continue;
 			if (newNode.hasOwnProperty(key)) continue;
-			dom = dom || resolveDomPath(domPath);	 
+			dom = dom || resolveDomPath(domPath);
 			if (key === 'style' || key === 'checked' || key === 'value' || key === 'className') {
 				dom[key] = '';
 			} else {
@@ -377,26 +384,26 @@ function mount(domParent, rootFunc, rootProps = {}) {
 
 		let func = newNode.onrefresh || newNode.refresh;
 		if (typeof func==='function') afterRefresh(func, resolveDomPath(domPath), [{type:"refresh"}, context, newNode]);
-		
+
 		return newNode;
 	}
-	
-	
+
+
 	function refresh() {
 		if (debug && scheduled<0) console.warn("refresh triggered during refresh");
 		if (scheduled<1) scheduled = setTimeout(refreshNow, 0);
 	}
-	
+
 	function refreshNow() {
 		if (debug && scheduled < 0) console.error("recursive invocation?");
 		scheduled = -1;
 
 		let oldTree = treeRoot;
 		treeRoot = glasgow(rootFunc, rootProps);
-		
+
 		domReads = domWrites = 0;
 		let startTime = new Date();
-		
+
 		if (domRoot && canPatch(treeRoot, oldTree)) {
 			treeRoot = patch(treeRoot, oldTree, [domRoot]);
 		}
@@ -411,7 +418,7 @@ function mount(domParent, rootFunc, rootProps = {}) {
 		}
 
 		console.log('glasgow refreshed in', new Date() - startTime, 'ms, using', domWrites, 'DOM updates and', domReads, 'DOM reads'+(debug ? " [use glasgow.setDebug(0) if you're interested in speed]" : ""));
-		
+
 		for(let i=0; i<afterRefreshArray.length; i+=3) {
 			afterRefreshArray[i].apply(afterRefreshArray[i+1], afterRefreshArray[i+2]);
 		}
@@ -419,8 +426,8 @@ function mount(domParent, rootFunc, rootProps = {}) {
 
 		if (scheduled===-1) scheduled = 0;
 	}
-	
-					
+
+
 	function unmount() {
 		let pos = instances.indexOf(this);
 		if (pos<0) throw new Error("not mountesd");
@@ -428,7 +435,7 @@ function mount(domParent, rootFunc, rootProps = {}) {
 		destroy(treeRoot, {}, domRoot);
 		domParent.removeChild(domRoot);
 	}
-	
+
 	function destroy(node, props, element) {
 		if (typeof node === 'string') return;
 		if (node._a) return destroy(node._a, node, element);
@@ -439,7 +446,7 @@ function mount(domParent, rootFunc, rootProps = {}) {
 		let func = node.onremove || node.remove;
 		if (typeof func==='function') return func.call(element, {type: "remove", parentStable: !!element}, props, node);
 	}
-	
+
 	function resolveDomPath(path,limit) {
 		let max = (limit==null ? path.length : limit) - 1;
 		for(let i = max; i>=0; i--) {
@@ -459,11 +466,11 @@ function mount(domParent, rootFunc, rootProps = {}) {
 		domReads++;
 		return path[0].parentNode;
 	}
-	
-	
+
+
 	function delegator(event) {
 		let indexes = [];
-		
+
 		// indexes = [0,3,5] means that the event was fired on the 1st element, from the
 		// 4th elements from the 6th element in domRoot.
 		for (let element = event.target; element !== domRoot; element = element.parentNode) {
@@ -488,12 +495,12 @@ function mount(domParent, rootFunc, rootProps = {}) {
 			}
 			tree = tree._c[indexes[i]];
 		}
-		
+
 
 		let type = event.type;
 		let ontype = 'on'+event.type;
 		console.log('glasgow event', type);
-		
+
 		let element = event.target;
 		let doRefresh = false;
 		for (let i = treeArray.length-2; i >= 0; i-=2) {
@@ -513,30 +520,30 @@ function mount(domParent, rootFunc, rootProps = {}) {
 		}
 		if (doRefresh) refreshNow();
 	}
-	
+
 	function bindingEventHandler(event, props, node) {
 		let val = (node.type === 'checkbox') ? (node.checked = this.checked) :
 							(node.type === 'number') ? parseFloat(node.value = this.value) :
 							(node.value = this.value);
 		writeBinding(node.binding, props, val);
 	}
-	
+
 	function bind(node, props) {
 		let val = readBinding(node.binding, props);
 		if (node.type === 'checkbox') node.checked = !!val;
 		else node.value = val==null ? "" : ""+val;
 		node.oninput = bindingEventHandler;
 	}
-	
+
 	function getTree() {
 		return treeRoot;
 	}
-	
+
 	// Called when we're done updating the DOM
 	function afterRefresh(func, self, args) {
 		afterRefreshArray.push(func, self, args);
 	}
-	
+
 }
 
 
@@ -644,5 +651,7 @@ glasgow.setDebug = setDebug;
 glasgow.refresh = getInstancesCaller('refresh');
 glasgow.refreshNow = getInstancesCaller('refreshNow');
 glasgow.refreshify = refreshify;
+glasgow.writeBinding = writeBinding;
+glasgow.readBinding = readBinding;
+glasgow.deleteBinding = deleteBinding;
 if (fetch) glasgow.fetch = glasgow.refreshify(fetch);
-
