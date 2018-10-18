@@ -16,7 +16,7 @@ let debug = 1;
 	// 0. production build
 	// 1. extra checking, a lot slower!
 	// 2. reserved
-	// 3. same as 1 + console.log every DOM update
+	// 3. same as 1 + glasgow.log every DOM update
 
 
 export default function glasgow(tag, props) {
@@ -117,8 +117,10 @@ function mount(domParent, rootFunc, rootProps = {}) {
 	function create(newNode, props, parentStable) {
 		if (typeof newNode === 'string') {
 			domWrites++;
-			if (debug>3) console.log('glasgow update create TextNode', newNode);
-			return document.createTextNode(newNode);
+			if (debug>3) glasgow.log('glasgow update create TextNode', newNode);
+			let el = document.createTextNode(newNode);
+			if (!domRoot) domRoot = el;
+			return el;
 		}
 
 		let tag = newNode._t;
@@ -134,7 +136,7 @@ function mount(domParent, rootFunc, rootProps = {}) {
 		let el = document.createElement(tag);
 		if (!domRoot) domRoot = el; // this can't wait; needed for event delegation
 		domWrites++;
-		if (debug>3) console.log('glasgow update create', tag);
+		if (debug>3) glasgow.log('glasgow update create', tag);
 		let func = newNode.oncreate || newNode.create;
 		if (typeof func==='function') afterRefresh(func, el, [{type:'create', parentStable}, props, newNode]);
 		patch(newNode, NON_TOP_EMPTY_NODE, [el], props);
@@ -161,7 +163,7 @@ function mount(domParent, rootFunc, rootProps = {}) {
 			if (newNode !== oldNode) {
 				resolveDomPath(domPath).textContent = newNode;
 				domWrites++;
-				if (debug>3) console.log('glasgow update set TextNode', newNode);
+				if (debug>3) glasgow.log('glasgow update set TextNode', newNode);
 			}
 			return newNode;
 		}
@@ -177,6 +179,7 @@ function mount(domParent, rootFunc, rootProps = {}) {
 			}
 
 			let materialized = tag(newNode, newNode._c);
+			delete newNode._c;
 			if (canPatch(materialized, oldNode._a)) {
 				newNode._a = patch(materialized, oldNode._a, domPath, newNode);
 			} else {
@@ -184,13 +187,13 @@ function mount(domParent, rootFunc, rootProps = {}) {
 				destroy(oldNode._a, oldNode);
 				newNode._a = materialized;
 				if (domPathPos===1) {
-					console.log('glasgow swap root element');
+					glasgow.log('glasgow swap root element');
 					domRoot = null;
 					delegatedTypes = {};
 				}
 				resolveDomPath(domPath,domPathPos-1).replaceChild(create(materialized, newNode, true), resolveDomPath(domPath));
 				domWrites++;
-				if (debug>3) console.log('glasgow update replace child', resolveDomPath(domPath));
+				if (debug>3) glasgow.log('glasgow update replace child', resolveDomPath(domPath));
 			}
 			return newNode;
 		}
@@ -288,7 +291,7 @@ function mount(domParent, rootFunc, rootProps = {}) {
 				if (!childDom) childDom = create(newChild, context, oldChildren!==NON_TOP_EMPTY_CHILDREN);
 				dom.insertBefore(childDom, insertBeforeE);
 				domWrites++;
-				if (debug>3) console.log('glasgow update insert node', childDom);
+				if (debug>3) glasgow.log('glasgow update insert node', childDom);
 			}
 
 			// Remove spurious elements from the DOM
@@ -317,7 +320,7 @@ function mount(domParent, rootFunc, rootProps = {}) {
 					}
 					dom.removeChild(element);
 					domWrites++;
-					if (debug>3) console.log('glasgow update remove element', element);
+					if (debug>3) glasgow.log('glasgow update remove element', element);
 				}
 			}
 		}
@@ -335,10 +338,10 @@ function mount(domParent, rootFunc, rootProps = {}) {
 				if (prop.substr(0,2)==='on') prop = prop.substr(2);
 				if (!delegatedTypes[prop]) {
 					delegatedTypes[prop] = true;
-					console.log('glasgow delegating event type', prop);
+					glasgow.log('glasgow delegating event type', prop);
 					domRoot.addEventListener(prop, delegator);
 					domWrites++;
-					if (debug>3) console.log('glasgow update add event listener', prop);
+					if (debug>3) glasgow.log('glasgow update add event listener', prop);
 				}
 				continue;
 			}
@@ -360,7 +363,7 @@ function mount(domParent, rootFunc, rootProps = {}) {
 				dom.setAttribute(prop, newVal);
 			}
 			domWrites++;
-			if (debug>3) console.log('glasgow update set attribute', prop, newVal);
+			if (debug>3) glasgow.log('glasgow update set attribute', prop, newVal);
 		}
 
 		for(let key in oldNode) {
@@ -373,7 +376,7 @@ function mount(domParent, rootFunc, rootProps = {}) {
 				dom.removeAttribute(key);
 			}
 			domWrites++;
-			if (debug>3) console.log('glasgow update unset attribute', key);
+			if (debug>3) glasgow.log('glasgow update unset attribute', key);
 		}
 
 		let func = newNode.onrefresh || newNode.refresh;
@@ -402,16 +405,17 @@ function mount(domParent, rootFunc, rootProps = {}) {
 			treeRoot = patch(treeRoot, oldTree, [domRoot]);
 		}
 		else {
-			console.log('glasgow creating root');
+			glasgow.log('glasgow creating root');
 			delegatedTypes = {};
 			let oldRoot = domRoot;
 			domRoot = null;
 			create(treeRoot); // will set domRoot
+			domWrites++;
 			if (oldRoot) domParent.replaceChild(domRoot, oldRoot);
 			else domParent.appendChild(domRoot);
 		}
 
-		console.log('glasgow refreshed in', new Date() - startTime, 'ms, using', domWrites, 'DOM updates and', domReads, 'DOM reads'+(debug ? " [use glasgow.setDebug(0) if you're interested in speed]" : ""));
+		glasgow.log('glasgow refreshed in', new Date() - startTime, 'ms, using', domWrites, 'DOM updates and', domReads, 'DOM reads'+(debug ? " [use glasgow.setDebug(0) if you're interested in speed]" : ""));
 		
 		for(let i=0; i<afterRefreshArray.length; i+=3) {
 			afterRefreshArray[i].apply(afterRefreshArray[i+1], afterRefreshArray[i+2]);
@@ -493,7 +497,7 @@ function mount(domParent, rootFunc, rootProps = {}) {
 
 		let type = event.type;
 		let ontype = 'on'+event.type;
-		console.log('glasgow event', type);
+		glasgow.log('glasgow event', type);
 		
 		let element = event.target;
 		let doRefresh = false;
@@ -615,11 +619,14 @@ function transition({element, from, to, time, easing, keep}) {
 				element.style[k] = to[k]==='original' ? original[k] : to[k];
 			}
 			setTimeout(function() {
-				for(let k in original) {
-					if (!keep || k==='transition') element.style[k] = original[k];
-				}
-				accept();
-			}, time+150);
+				// The extra timeout is to start this timer after the transition has actually started.
+				setTimeout(function() {
+					for(let k in original) {
+						if (!keep || k==='transition') element.style[k] = original[k];
+					}
+					accept();
+				}, time);
+			}, 1);
 		}, 0);
 	});
 }
@@ -645,5 +652,8 @@ glasgow.setDebug = setDebug;
 glasgow.refresh = getInstancesCaller('refresh');
 glasgow.refreshNow = getInstancesCaller('refreshNow');
 glasgow.refreshify = refreshify;
+glasgow.log = function() { // ment to be overridden
+	console.log.apply(console, arguments);
+};
 if (fetch) glasgow.fetch = glasgow.refreshify(fetch);
 

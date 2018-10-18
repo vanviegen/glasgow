@@ -8,5 +8,8 @@
   "main": "glasgow.js",
   "engines": {
     "node": "8.x"
+  },
+  "devDependencies": {
+    "esm": "^3.0.84"
   }
 }
