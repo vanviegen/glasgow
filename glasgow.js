@@ -292,19 +292,20 @@ function mount(domParent, rootFunc, rootProps = {}) {
 			}
 
 			// Remove spurious elements from the DOM
+			let insertKept = start;
 			for(let i=0; i<oldElements.length; i++) {
 				let element = oldElements[i];
 				if (element) {
 					let child = oldChildren[start+i];
 					if (typeof child !== 'string') {
 						if (child._t === 'kept') {
-							newChildren.splice(start++, 0, child);
+							newChildren.splice(insertKept++, 0, child);
 							continue;
 						}
 						let res = destroy(child, context, element);
 						if (res && typeof res.then === 'function') {
 							let kept = {_t: 'kept', _c: []};
-							newChildren.splice(start++, 0, kept);
+							newChildren.splice(insertKept++, 0, kept);
 							(function(kept) {
 								res.then(function() {
 									kept._t = 'discard';
