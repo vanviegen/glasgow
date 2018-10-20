@@ -548,7 +548,7 @@ let object = {
 }
 
 function MyComponent(props) {
-  let value = glasgow.readBinding([object, "foo", 0], binding)
+  let value = glasgow.readBinding([object, "foo", 0], props)
   return {value} // returns "bar"
 }
 ```
