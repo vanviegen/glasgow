@@ -1,6 +1,6 @@
 {
   "name": "glasgow",
-  "version": "0.4.4",
+  "version": "0.4.5",
   "description": "An easy-to-use JavaScript library for building user interfaces in a functional reactive way, using JSX.",
   "author": "Frank van Viegen",
   "license": "MIT",
@@ -10,6 +10,13 @@
     "node": "8.x"
   },
   "devDependencies": {
-    "esm": "^3.0.84"
+    "istanbul": "^0.4.5",
+    "babel-cli": "^6.26.0",
+    "babel-plugin-transform-esm-to-cjs": "0.0.0"
+  },
+  "scripts": {
+    "test": "npm run --silent build-cjs && node tests/index.js",
+    "coverage": "npm run --silent build-cjs && rm -rf coverage ; istanbul cover tests/index.js --report html",
+    "build-cjs": "babel glasgow.js -o glasgow-cjs.js"
   }
 }

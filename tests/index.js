@@ -4,11 +4,12 @@ global.document = {
 };
 global.window = {};
 
-require = require("esm")(module);
+
 const fs = require('fs');
-const glasgow = require("../glasgow.js").default;
-global.glasgow = glasgow;
+const glasgow = require("../glasgow-cjs.js");
+
 glasgow.setDebug(99);
+global.glasgow = glasgow;
 
 
 let newCount = 0;
@@ -22,12 +23,36 @@ glasgow.log = function(...args) {
 }
 
 
+let timeouts = [];
+let timeBase = 0;
+let realSetTimeout = global.setTimeout;
+global.setTimeout = function(func,time) {
+	timeouts.push({func, time: time+timeBase});
+};
+
+const wait = ms => new Promise((r, j)=>realSetTimeout(r, ms))
+
+async function runTimeouts() {
+	while(true) {
+		// execute all microtasks first
+		await wait(0);
+		// only then see if there is a macrotask created by setTimeout
+		if (!timeouts.length) return;
+		timeouts.sort( (a,b) => a.time-b.time );
+		let timeout = timeouts.shift();
+		timeBase = timeout.time;
+		timeout.func.call(this);
+	}
+}
+
+
 class Element {
 	constructor(tag) {
 		this.tag = tag;
 		this.childNodes = [];
 		this._style = {};
 		this.attrs = {};
+		this.events = {};
 		newCount++;
 	}
 	appendChild(node) {
@@ -61,10 +86,10 @@ class Element {
 		delete this.attrs[k];
 	}
 	get firstChild() {
-		return this.children[0];
+		return this.childNodes[0];
 	}
 	get lastChild() {
-		return this.children[this.children.length-1];
+		return this.childNodes[this.childNodes.length-1];
 	}
 	get nextSibling() {
 		return this.getSibling(+1);
@@ -89,36 +114,58 @@ class Element {
 		this.attrs.class = v;
 	}
 	toString() {
-		//div(a=3 b=4){}
-		let res = this.tag;
-
 		let props = Object.assign({}, this);
 		for(let k in this.attrs) props['@'+k] = this.attrs[k];
 		for(let k in this.style) props['$'+k] = this._style[k];
 		delete props.tag;
 		delete props.attrs;
 		delete props._style;
+		delete props.events;
 		delete props.childNodes;
 		delete props.parentNode;
 
 		let arr = [];
 		for(let k in props) arr.push(k+'='+JSON.stringify(props[k]));
-		if (arr.length) {
-			arr.sort();
-			res += '(' + arr.join(' ') + ')';
-		}
+		arr.sort();
+		for(let child of this.childNodes) arr.push(child.toString());
 
-		if (this.childNodes.length) {
-			res += "{";
-			for(let child of this.childNodes) {
-				res += child.toString();
+		return this.tag + `{${arr.join(' ')}}`;
+	}
+
+	assertChildren(desired) {
+		let result = this.childNodes.join(' ');
+		desired = desired.toString();
+		if (verbose>2) console.log(`  assert ${desired}`);
+		if (result!==desired) throw new Error(`invalid result ${result} instead of ${desired}`);
+	}
+
+	addEventListener(name, func) {
+		this.events[name] = this.events[name] || [];
+		this.events[name].push(func);
+	}
+	event(info) {
+		if (typeof info === 'string') info = {type: info};
+		let type = info.type;
+		info.target = this;
+		info.preventDefault = function(){};
+		info.stopPropagation = function(){ info.stopped = true; };
+		let node = this;
+		while(node && !info.stopped) {
+			let funcs = node.events[type];
+			if (funcs) {
+				for(let func of funcs) {
+					func.call(node, info);
+				}
 			}
-			res += "}";
+			node = node.parentNode;
 		}
-		else {
-			res += "{}";
+	}
+	getElementById(id) {
+		if (this.attrs.id === id) return this;
+		for(let child of this.childNodes) {
+			let el = child.getElementById(id);
+			if (el) return el;
 		}
-		return res;
 	}
 }
 
@@ -139,21 +186,17 @@ function objEmpty(obj) {
 
 
 
-function assertResult(result, desired) {
-	result = result.toString();
-	desired = desired.toString();
-	if (result!=desired) throw new Error(`invalid result ${result} instead of ${desired}`);
-}
-
-function runTest(name, ...steps) {
+async function runTest(name, ...steps) {
 	if (verbose>0) console.log(name);
 	logs = [];
 	let body = new Element('body');
+	timeouts = [];
 
 	let mount;
+	let rootProps = {};
 	var step;
-	function func() {
-		return step.func.apply(this, arguments);
+	function root() {
+		return step.root.apply(this, arguments);
 	}
 	for(let i=0; i<steps.length; i++) {
 		try {
@@ -161,16 +204,17 @@ function runTest(name, ...steps) {
 			newCount = 0;
 			step = steps[i];
 			if (i) mount.refreshNow();
-			else mount = glasgow.mount(body, func);
-			if (body.childNodes.length != 1) throw new Error("one body child expected");
+			else mount = glasgow.mount(body, root, rootProps);
 			if (step.result!=null) {
-				assertResult(body.childNodes[0], step.result);
+				body.assertChildren(step.result);
 			}
 			if (step.maxNew!=null) {
 				if (newCount > step.maxNew) throw new Error(`${newCount} new elements created, only ${step.maxNew} allowed`);
 			}
+			if (step.after) step.after(body, rootProps);
+			await runTimeouts();
 		} catch(e) {
-			console.log(`FAILED TEST '${name}' at step ${i}\n\t${e}\n\tLogs:\n\t\t${logs.map(e => e.join(" ")).join("\n\t\t")}`);
+			console.log(`FAILED TEST '${name}' at step ${i}\n\t${(e.stack||e).replace(/\n {0,4}/g,"\n\t\t")}\n\tLogs:\n\t\t${logs.map(e => e.join(" ")).join("\n\t\t")}`);
 			failed++;
 			try {
 				mount.unmount();
@@ -209,32 +253,36 @@ for(let i=2; i<process.argv.length; i++) {
 	}
 }
 
-if (tests.length) {
-	for(let test of tests) {
-		let [file,name] = test.split(':');
-		let module = require(__dirname+'/'+file+'.js');
-		if (name) {
-			runTest(file+':'+name, ...module[name]);
-		} else {
-			for(let name in module) {
-				runTest(file+':'+name, ...module[name]);
-			}
-		}
+runTests(tests);
 
-	}
-} else {
-	for(let file of fs.readdirSync(__dirname)) {
-		let m = file.match(/^(.+)\.js$/);
-		if (m && m[1]!=='index') {
-			let module = require(__dirname+'/'+file);
-			for(let name in module) {
-				runTest(m[1]+':'+name, ...module[name]);
+async function runTests(tests) {
+	if (tests.length) {
+		for(let test of tests) {
+			let [file,name] = test.split(':');
+			let module = require(__dirname+'/'+file+'.js');
+			if (await name) {
+				await runTest(file+':'+name, ...module[name]);
+			} else {
+				for(let name in module) {
+					await runTest(file+':'+name, ...module[name]);
+				}
+			}
+
+		}
+	} else {
+		for(let file of fs.readdirSync(__dirname)) {
+			let m = file.match(/^(.+)\.js$/);
+			if (m && m[1]!=='index') {
+				let module = require(__dirname+'/'+file);
+				for(let name in module) {
+					await runTest(m[1]+':'+name, ...module[name]);
+				}
 			}
 		}
 	}
+	if (failed) console.log(`Failed ${failed} out of ${failed+passed} test`);
+	else console.log(`Passed all ${passed} tests!`);
 }
 
 
-if (failed) console.log(`Failed ${failed} out of ${failed+passed} test`);
-else console.log(`Passed all ${passed} tests!`);
 

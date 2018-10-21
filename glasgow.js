@@ -2,9 +2,10 @@
 // (c) Frank van Viegen
 // MIT license
 
-const EMPTY_ARRAY = [];
 const NON_TOP_EMPTY_CHILDREN = [];
 const NON_TOP_EMPTY_NODE = {_c: NON_TOP_EMPTY_CHILDREN};
+for(let obj of [NON_TOP_EMPTY_CHILDREN, NON_TOP_EMPTY_NODE])
+	Object.freeze(obj);
 
 const NOT_HANDLED = {}; // constant that can be returned by event handlers
 
@@ -39,7 +40,7 @@ export default function glasgow(tag, props) {
 			}
 		}
 	} else {
-		props._c = EMPTY_ARRAY;
+		props._c = [];
 	}
 	
 	return props;
@@ -204,7 +205,7 @@ function mount(domParent, rootFunc, rootProps = {}) {
 		
 		// Now let's sync some children
 		let newChildren = newNode._c;
-		let oldChildren = oldNode._c; // ==== NON_TOP_EMPTY_CHILDREN when parent is newly created
+		let oldChildren = oldNode._c; // === NON_TOP_EMPTY_CHILDREN when parent is newly create
 
 		// First, we'll try to match the head and tail
 		let start, end, count = Math.min(newChildren.length, oldChildren.length);

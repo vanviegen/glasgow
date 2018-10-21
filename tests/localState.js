@@ -4,18 +4,18 @@ function Stateful(props) {
 }
 
 exports.keep = [{
-	func: props => glasgow(Stateful,{x:1}),
+	root: props => glasgow(Stateful,{x:1}),
 	result: `div{"1"}`
 }, {
-	func: props => glasgow(Stateful,{x:1}),
+	root: props => glasgow(Stateful,{x:1}),
 	result: `div{"2"}`,
 	maxNew: 0
 }];
 
 exports.discard = [{
-	func: props => glasgow(Stateful,{x:1}),
+	root: props => glasgow(Stateful,{x:1}),
 	result: `div{"1"}`
 }, {
-	func: props => glasgow(Stateful,{x:2}),
+	root: props => glasgow(Stateful,{x:2}),
 	result: `div{"1"}`,
 }];
