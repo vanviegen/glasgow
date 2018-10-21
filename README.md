@@ -61,12 +61,11 @@ function Item(props, children) {
 }
 
 // This the onclick handler for the delete-button. Notice how we didn't need to
-// bind the function, as `info` provides us access to the component's `props`,
-// among other things.
-function deleteItem(info) {
+// bind the function, as the component's `props` are provided by Glasgow.
+function deleteItem(event, props) {
   // We're just modifying regular JavaScript variables here. Glasgow will 
   // refresh the UI after we return from the event handler.
-  list.splice(list.indexOf(info.context.item), 1);
+  list.splice(list.indexOf(props.key), 1);
 }
 
 
@@ -90,9 +89,9 @@ function ToDo(props, children) {
   // value is kept when redrawing. (See: Component state.)
 }
 
-function addItem(info) {
-  list.push(info.props.$newItem);
-  info.props.$newItem = "";
+function addItem(event, props) {
+  list.push(props.$newItem);
+  props.$newItem = "";
 }
 
 
