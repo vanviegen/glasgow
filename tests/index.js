@@ -8,7 +8,6 @@ global.window = {};
 const fs = require('fs');
 const glasgow = require("../glasgow-cjs.js");
 
-glasgow.setDebug(99);
 global.glasgow = glasgow;
 
 
@@ -187,44 +186,48 @@ function objEmpty(obj) {
 
 
 async function runTest(name, ...steps) {
-	if (verbose>0) console.log(name);
-	logs = [];
-	let body = new Element('body');
-	timeouts = [];
+	for(let setDebug of [9,0]) {
+		glasgow.setDebug(setDebug);
 
-	let mount;
-	let rootProps = {};
-	var step;
-	function root() {
-		return step.root.apply(this, arguments);
-	}
-	for(let i=0; i<steps.length; i++) {
-		try {
-			glasgow.log(`STEP ${i}`);
-			newCount = 0;
-			step = steps[i];
-			if (i) mount.refreshNow();
-			else mount = glasgow.mount(body, root, rootProps);
-			if (step.result!=null) {
-				body.assertChildren(step.result);
-			}
-			if (step.maxNew!=null) {
-				if (newCount > step.maxNew) throw new Error(`${newCount} new elements created, only ${step.maxNew} allowed`);
-			}
-			if (step.after) step.after(body, rootProps);
-			await runTimeouts();
-		} catch(e) {
-			console.log(`FAILED TEST '${name}' at step ${i}\n\t${(e.stack||e).replace(/\n {0,4}/g,"\n\t\t")}\n\tLogs:\n\t\t${logs.map(e => e.join(" ")).join("\n\t\t")}`);
-			failed++;
-			try {
-				mount.unmount();
-			} catch(e) {}
-			return;
+		if (verbose>0) console.log(`${name} [setDebug(${setDebug})]`);
+		logs = [];
+		let body = new Element('body');
+		timeouts = [];
+
+		let mount;
+		let rootProps = {};
+		var step;
+		function root() {
+			return step.root.apply(this, arguments);
 		}
-	}
+		for(let i=0; i<steps.length; i++) {
+			try {
+				glasgow.log(`STEP ${i}`);
+				newCount = 0;
+				step = steps[i];
+				if (i) mount.refreshNow();
+				else mount = glasgow.mount(body, root, rootProps);
+				if (step.result!=null) {
+					body.assertChildren(step.result);
+				}
+				if (step.maxNew!=null) {
+					if (newCount > step.maxNew) throw new Error(`${newCount} new elements created, only ${step.maxNew} allowed`);
+				}
+				if (step.after) step.after(body, rootProps);
+				await runTimeouts();
+			} catch(e) {
+				console.log(`FAILED TEST '${name}' at step ${i}\n\t${(e.stack||e).replace(/\n {0,4}/g,"\n\t\t")}\n\tLogs:\n\t\t${logs.map(e => e.join(" ")).join("\n\t\t")}`);
+				failed++;
+				try {
+					mount.unmount();
+				} catch(e) {}
+				return;
+			}
+		}
 
-	passed++;
-	mount.unmount();
+		passed++;
+		mount.unmount();
+	}
 }
 
 let tests = [];
