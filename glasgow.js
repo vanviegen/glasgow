@@ -118,7 +118,7 @@ function mount(domParent, rootFunc, rootProps = {}) {
 	function create(newNode, props, parentStable) {
 		if (typeof newNode === 'string') {
 			domWrites++;
-			if (debug>3) glasgow.log('glasgow update create TextNode', newNode);
+			if (debug>=3) glasgow.log('glasgow update create TextNode', newNode);
 			let el = document.createTextNode(newNode);
 			if (!domRoot) domRoot = el;
 			return el;
@@ -137,7 +137,7 @@ function mount(domParent, rootFunc, rootProps = {}) {
 		let el = document.createElement(tag);
 		if (!domRoot) domRoot = el; // this can't wait; needed for event delegation
 		domWrites++;
-		if (debug>3) glasgow.log('glasgow update create', tag);
+		if (debug>=3) glasgow.log('glasgow update create', tag);
 		let func = newNode.oncreate || newNode.create;
 		if (typeof func==='function') afterRefresh(func, el, [{type:'create', parentStable}, props, newNode]);
 		patch(newNode, NON_TOP_EMPTY_NODE, [el], props);
@@ -164,7 +164,7 @@ function mount(domParent, rootFunc, rootProps = {}) {
 			if (newNode !== oldNode) {
 				resolveDomPath(domPath).textContent = newNode;
 				domWrites++;
-				if (debug>3) glasgow.log('glasgow update set TextNode', newNode);
+				if (debug>=3) glasgow.log('glasgow update set TextNode', newNode);
 			}
 			return newNode;
 		}
@@ -194,7 +194,7 @@ function mount(domParent, rootFunc, rootProps = {}) {
 				}
 				resolveDomPath(domPath,domPathPos-1).replaceChild(create(materialized, newNode, true), resolveDomPath(domPath));
 				domWrites++;
-				if (debug>3) glasgow.log('glasgow update replace child', resolveDomPath(domPath));
+				if (debug>=3) glasgow.log('glasgow update replace child', resolveDomPath(domPath));
 			}
 			return newNode;
 		}
@@ -292,7 +292,7 @@ function mount(domParent, rootFunc, rootProps = {}) {
 				if (!childDom) childDom = create(newChild, context, oldChildren!==NON_TOP_EMPTY_CHILDREN);
 				dom.insertBefore(childDom, insertBeforeE);
 				domWrites++;
-				if (debug>3) glasgow.log('glasgow update insert node', childDom);
+				if (debug>=3) glasgow.log('glasgow update insert node', childDom);
 			}
 
 			// Remove spurious elements from the DOM
@@ -321,7 +321,7 @@ function mount(domParent, rootFunc, rootProps = {}) {
 					}
 					dom.removeChild(element);
 					domWrites++;
-					if (debug>3) glasgow.log('glasgow update remove element', element);
+					if (debug>=3) glasgow.log('glasgow update remove element', element);
 				}
 			}
 		}
@@ -342,7 +342,7 @@ function mount(domParent, rootFunc, rootProps = {}) {
 					glasgow.log('glasgow delegating event type', prop);
 					domRoot.addEventListener(prop, delegator);
 					domWrites++;
-					if (debug>3) glasgow.log('glasgow update add event listener', prop);
+					if (debug>=3) glasgow.log('glasgow update add event listener', prop);
 				}
 				continue;
 			}
@@ -364,7 +364,7 @@ function mount(domParent, rootFunc, rootProps = {}) {
 				dom.setAttribute(prop, newVal);
 			}
 			domWrites++;
-			if (debug>3) glasgow.log('glasgow update set attribute', prop, newVal);
+			if (debug>=3) glasgow.log('glasgow update set attribute', prop, newVal);
 		}
 
 		for(let key in oldNode) {
@@ -377,7 +377,7 @@ function mount(domParent, rootFunc, rootProps = {}) {
 				dom.removeAttribute(key);
 			}
 			domWrites++;
-			if (debug>3) glasgow.log('glasgow update unset attribute', key);
+			if (debug>=3) glasgow.log('glasgow update unset attribute', key);
 		}
 
 		let func = newNode.onrefresh || newNode.refresh;
