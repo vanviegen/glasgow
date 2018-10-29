@@ -27,17 +27,7 @@ export default function glasgow(tag, props) {
 	if (arguments.length > 2) {
 		var children = props._c = [];
 		for(let i=2; i<arguments.length; i++) {
-			let child = arguments[i];
-			if (child instanceof Array) {
-				for(let j=0; j<child.length; j++) {
-					if (child[j] != null) {
-						children.push(child[j]);
-					}
-				}
-			}
-			else if (child != null) {
-				children.push(child);
-			}
+			addChild(children, arguments[i]);
 		}
 	} else {
 		props._c = [];
@@ -46,6 +36,22 @@ export default function glasgow(tag, props) {
 	return props;
 };
 
+function addChild(children, child) {
+	if (child == null) return; // null or undefined
+	let type = typeof child;
+	if (type === 'object') {
+		if (child instanceof Array) {
+			for(let j=0; j<child.length; j++) addChild(children, child[j]);
+			return;
+		}
+		let tagType = typeof child._t;
+		if (tagType === 'string' || tagType === 'function') return children.push(child);
+	}
+	else if (type === 'number') return children.push(''+child);
+	else if (type === 'string') return children.push(child);
+
+	throw new Error("invalid VDOM node: "+JSON.stringify(child));
+}
 
 
 function propsEqual(p1,p2) {
@@ -128,10 +134,6 @@ function mount(domParent, rootFunc, rootProps = {}) {
 		if (typeof tag === 'function') { // create a component
 			newNode._a = tag(newNode, newNode._c);
 			return create(newNode._a, newNode, parentStable);
-		}
-		if (typeof tag !== 'string') {
-				if (debug) console.error("invalid virtual DOM node:", newNode);
-				return create(""+tag);
 		}
 		
 		let el = document.createElement(tag);
