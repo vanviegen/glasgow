@@ -34,7 +34,7 @@ for(let a of types) {
 	for(let b of types) {
 		if (a==b) continue;
 		exports[`${a.name}-to-${b.name}`] = [
-			{root: a.root, maxNew: 1, result: a.result},
+			{root: a.root, maxNew: 2, result: a.result},
 			{root: a.root, maxNew: 0, result: a.result},
 			{root: b.root, maxNew: 1, result: b.result},
 			{root: b.root, maxNew: 0, result: b.result},

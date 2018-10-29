@@ -21,16 +21,20 @@ let debug = 1;
 
 
 export default function glasgow(tag, props) {
-	props = props || {};
+	if (debug && typeof tag !== 'string' && typeof tag !== 'function') {
+		throw new Error("first parameter should be a tag string or a component function");
+	}
+	
+	if (props==null) props = {};
+	else if (debug && Object.getPrototypeOf(props) !== Object.prototype) {
+		throw new Error("second parameter should be a plain javascript object or null");
+	}
+	
 	props._t = tag;
 
-	if (arguments.length > 2) {
-		var children = props._c = [];
-		for(let i=2; i<arguments.length; i++) {
-			addChild(children, arguments[i]);
-		}
-	} else {
-		props._c = [];
+	var children = props._c = [];
+	for(let i=2; i<arguments.length; i++) {
+		addChild(children, arguments[i]);
 	}
 	
 	return props;
@@ -50,7 +54,7 @@ function addChild(children, child) {
 	else if (type === 'number') return children.push(''+child);
 	else if (type === 'string') return children.push(child);
 
-	throw new Error("invalid VDOM node: "+JSON.stringify(child));
+	throw new Error("invalid child VDOM node: "+JSON.stringify(child));
 }
 
 
@@ -104,10 +108,12 @@ function refreshify(func) {
 
 function mount(domParent, rootFunc, rootProps = {}) {
 
-	let domRoot;
-	let treeRoot;
+	let treeRoot = {_t: rootFunc, _a: {_t: 'div', _c: []}};
+	let domRoot = document.createElement('div');
+	domParent.appendChild(domRoot);
+
 	let domReads, domWrites; // DOM operations counters
-	let delegatedTypes; // eg {'onclick' => true}
+	let newDelegatedEvents = {}, allDelegatedEvents = {}; // eg {'onclick' => true}
 	let afterRefreshArray = [];
 
 	let scheduled = 0;
@@ -120,24 +126,29 @@ function mount(domParent, rootFunc, rootProps = {}) {
 
 	return instance;
 
+	function materialize(newNode) {
+		let res = newNode._t(newNode, newNode._c);
+		delete newNode._c;
+
+		let arr = [];
+		addChild(arr, res);
+		return arr.length===1 ? arr[0] : {_t:'div', _c: arr};
+	}
 
 	function create(newNode, props, parentStable) {
 		if (typeof newNode === 'string') {
 			domWrites++;
 			if (debug>=3) glasgow.log('glasgow update create TextNode', newNode);
-			let el = document.createTextNode(newNode);
-			if (!domRoot) domRoot = el;
-			return el;
+			return document.createTextNode(newNode);
 		}
 
 		let tag = newNode._t;
 		if (typeof tag === 'function') { // create a component
-			newNode._a = tag(newNode, newNode._c);
+			newNode._a = materialize(newNode);
 			return create(newNode._a, newNode, parentStable);
 		}
 		
 		let el = document.createElement(tag);
-		if (!domRoot) domRoot = el; // this can't wait; needed for event delegation
 		domWrites++;
 		if (debug>=3) glasgow.log('glasgow update create', tag);
 		let func = newNode.oncreate || newNode.create;
@@ -161,7 +172,7 @@ function mount(domParent, rootFunc, rootProps = {}) {
 			if (newNode._e) console.error('double patch', newNode, resolveDomPath(domPath));
 			if (oldNode._e && oldNode._e !== resolveDomPath(domPath)) console.error('dom element not properly matched with old node', oldNode, resolveDomPath(domPath));
 		}
-		
+
 		if (typeof newNode === 'string') {
 			if (newNode !== oldNode) {
 				resolveDomPath(domPath).textContent = newNode;
@@ -181,22 +192,28 @@ function mount(domParent, rootFunc, rootProps = {}) {
 				newNode = oldNode;
 			}
 
-			let materialized = tag(newNode, newNode._c);
-			delete newNode._c;
+			let materialized = materialize(newNode);
+		
 			if (canPatch(materialized, oldNode._a)) {
 				newNode._a = patch(materialized, oldNode._a, domPath, newNode);
 			} else {
 				// the top-level tag or key for this component changed
 				destroy(oldNode._a, oldNode);
 				newNode._a = materialized;
-				if (domPathPos===1) {
-					glasgow.log('glasgow swap root element');
-					domRoot = null;
-					delegatedTypes = {};
-				}
-				resolveDomPath(domPath,domPathPos-1).replaceChild(create(materialized, newNode, true), resolveDomPath(domPath));
+
+				let parentE = resolveDomPath(domPath, domPathPos-1);
+				let newE = create(materialized, newNode, true);
+				let oldE = resolveDomPath(domPath);
+				parentE.replaceChild(newE, oldE);
+
 				domWrites++;
 				if (debug>=3) glasgow.log('glasgow update replace child', resolveDomPath(domPath));
+				
+				if (oldE===domRoot) {
+					if (debug) glasgow.log('replacing root element');
+					domRoot = domPath[0] = newE;
+					newDelegatedEvents = allDelegatedEvents;
+				}
 			}
 			return newNode;
 		}
@@ -339,12 +356,9 @@ function mount(domParent, rootFunc, rootProps = {}) {
 			let newVal = newNode[prop];
 			if (typeof newVal === 'function') {
 				if (prop.substr(0,2)==='on') prop = prop.substr(2);
-				if (!delegatedTypes[prop]) {
-					delegatedTypes[prop] = true;
-					glasgow.log('glasgow delegating event type', prop);
-					domRoot.addEventListener(prop, delegator);
-					domWrites++;
-					if (debug>=3) glasgow.log('glasgow update add event listener', prop);
+				if (!allDelegatedEvents[prop]) {
+					if (debug) glasgow.log('glasgow delegating event type', prop);
+					newDelegatedEvents[prop] = allDelegatedEvents[prop] = true;
 				}
 				continue;
 			}
@@ -393,7 +407,7 @@ function mount(domParent, rootFunc, rootProps = {}) {
 		if (debug && scheduled<0) console.warn("refresh triggered during refresh");
 		if (scheduled<1) scheduled = setTimeout(refreshNow, 0);
 	}
-	
+
 	function refreshNow() {
 		if (debug && scheduled < 0) console.error("recursive invocation?");
 		scheduled = -1;
@@ -403,20 +417,16 @@ function mount(domParent, rootFunc, rootProps = {}) {
 		
 		domReads = domWrites = 0;
 		let startTime = new Date();
-		
-		if (domRoot && canPatch(treeRoot, oldTree)) {
-			treeRoot = patch(treeRoot, oldTree, [domRoot]);
-		}
-		else {
-			glasgow.log('glasgow creating root');
-			delegatedTypes = {};
-			let oldRoot = domRoot;
-			domRoot = null;
-			create(treeRoot); // will set domRoot
+
+		if (debug && !canPatch(treeRoot, oldTree)) console.error("root cannot be patched", treeRoot, oldTree);
+		treeRoot = patch(treeRoot, oldTree, [domRoot]);
+
+		for(let prop in newDelegatedEvents) {
+			domRoot.addEventListener(prop, delegator);
 			domWrites++;
-			if (oldRoot) domParent.replaceChild(domRoot, oldRoot);
-			else domParent.appendChild(domRoot);
+			if (debug>=3) glasgow.log('glasgow update add event listener', prop);
 		}
+		newDelegatedEvents = {};
 
 		glasgow.log('glasgow refreshed in', new Date() - startTime, 'ms, using', domWrites, 'DOM updates and', domReads, 'DOM reads'+(debug ? " [use glasgow.setDebug(0) if you're interested in speed]" : ""));
 		
@@ -464,8 +474,7 @@ function mount(domParent, rootFunc, rootProps = {}) {
 			}
 		}
 		// limit === 0, we want the parent element
-		domReads++;
-		return path[0].parentNode;
+		return domParent;
 	}
 	
 	

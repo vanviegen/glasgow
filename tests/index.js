@@ -45,8 +45,25 @@ async function runTimeouts() {
 }
 
 
-class Element {
+class ElementBase {
+	get nextSibling() {
+		return this.getSibling(+1);
+	}
+	get previousSibling() {
+		return this.getSibling(-1);
+	}
+	getSibling(delta) {
+		if (!this.parentNode) return;
+		let siblings = this.parentNode.childNodes;
+		let idx = siblings.indexOf(this);
+		if (idx < 0) throw new Error("not part of sibling!?");
+		return siblings[idx+delta];
+	}
+}
+
+class Element extends ElementBase {
 	constructor(tag) {
+		super();
 		this.tag = tag;
 		this.childNodes = [];
 		this._style = {};
@@ -89,18 +106,6 @@ class Element {
 	}
 	get lastChild() {
 		return this.childNodes[this.childNodes.length-1];
-	}
-	get nextSibling() {
-		return this.getSibling(+1);
-	}
-	get previousSibling() {
-		return this.getSibling(-1);
-	}
-	getSibling(delta) {
-		let siblings = this.parentNode.childNodes;
-		let idx = siblings.indexOf(this);
-		if (idx < 0) throw new Error("not part of sibling!?");
-		return siblings[idx+delta];
 	}
 	set style(val) {
 		if (val !== '') throw new Error("non-empty style string cannot be emulated");
@@ -168,8 +173,9 @@ class Element {
 	}
 }
 
-class TextNode {
+class TextNode extends ElementBase {
 	constructor(textContent) {
+		super();
 		this.textContent = textContent;
 		newCount++;
 	}
@@ -195,7 +201,7 @@ async function runTest(name, ...steps) {
 		timeouts = [];
 
 		let mount;
-		let rootProps = {};
+		let rootProps = {abc:23};
 		var step;
 		function root() {
 			return step.root.apply(this, arguments);
@@ -216,7 +222,7 @@ async function runTest(name, ...steps) {
 				if (step.after) step.after(body, rootProps);
 				await runTimeouts();
 			} catch(e) {
-				console.log(`FAILED TEST '${name}' at step ${i}\n\t${(e.stack||e).replace(/\n {0,4}/g,"\n\t\t")}\n\tLogs:\n\t\t${logs.map(e => e.join(" ")).join("\n\t\t")}`);
+				console.log(`FAILED TEST '${name}' [setDebug(${setDebug})] at step ${i}\n\t${(e.stack||e).replace(/\n {0,4}/g,"\n\t\t")}\n\tLogs:\n\t\t${logs.map(e => e.join(" ")).join("\n\t\t")}`);
 				failed++;
 				try {
 					mount.unmount();
