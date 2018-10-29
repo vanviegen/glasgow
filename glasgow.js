@@ -74,7 +74,7 @@ function writeBinding(binding, props, value) {
 
 function readBinding(binding, props) {
 	let [obj,key] = resolveBinding(binding, props);
-	if (obj[key] == null && typeof binding[0] === 'object') return key;
+	// if (obj[key] == null && typeof binding[0] === 'object') return key;
 	return obj[key];
 }
 
