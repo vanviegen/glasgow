@@ -161,7 +161,7 @@ The function returns a virtual DOM node.
 - `tag` is either a string containing an HTML element tag (like "div" or "a"), or a function, which will be used as a component. (See: Components.)
 
 - `props` is an optional JavaScript object containing HTML attributes. Some special cases:
-  - `className`, `checked`, `value` and `selectedIndex` are DOM properties instead of HTML attributes. `null` values are ignored.
+  - `className`, `checked`, `disabled`, `value` and `selectedIndex` are DOM properties instead of HTML attributes. `null` values are ignored.
   - `style` can receive a style properties object instead of a style string.
   - When the attribute value is a function it is assumed to be an event handlers. (See: Event handlers.)
   - `key` is used for keeping track of element, (See: Reconciliation.)

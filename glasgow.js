@@ -378,7 +378,7 @@ function mount(domParent, rootFunc, rootProps = {}) {
 			}
 
 			dom = dom || resolveDomPath(domPath);
-			if (prop === 'checked' || prop === 'value' || prop === 'className' || prop === 'selectedIndex') {
+			if (prop === 'checked' || prop === 'value' || prop === 'className' || prop === 'selectedIndex' || prop === 'disabled') {
 				dom[prop] = newVal;
 			} else if (prop === 'style' && typeof newVal === 'object') {
 				if (oldVal) dom.style = '';
