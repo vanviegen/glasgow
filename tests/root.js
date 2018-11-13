@@ -42,3 +42,7 @@ for(let a of types) {
 	}
 }
 
+exports.rootProps = {
+	root: props => props.abc,
+	result: `"23"`,
+};

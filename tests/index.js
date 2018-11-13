@@ -191,7 +191,8 @@ function objEmpty(obj) {
 
 
 
-async function runTest(name, ...steps) {
+async function runTest(name, steps) {
+	if (!(steps instanceof Array)) steps = [steps];
 	for(let setDebug of [9,0]) {
 		glasgow.setDebug(setDebug);
 
@@ -270,10 +271,10 @@ async function runTests(tests) {
 			let [file,name] = test.split(':');
 			let module = require(__dirname+'/'+file+'.js');
 			if (await name) {
-				await runTest(file+':'+name, ...module[name]);
+				await runTest(file+':'+name, module[name]);
 			} else {
 				for(let name in module) {
-					await runTest(file+':'+name, ...module[name]);
+					await runTest(file+':'+name, module[name]);
 				}
 			}
 
@@ -284,7 +285,7 @@ async function runTests(tests) {
 			if (m && m[1]!=='index') {
 				let module = require(__dirname+'/'+file);
 				for(let name in module) {
-					await runTest(m[1]+':'+name, ...module[name]);
+					await runTest(m[1]+':'+name, module[name]);
 				}
 			}
 		}
