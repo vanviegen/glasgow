@@ -512,6 +512,7 @@ function mount(domParent, rootFunc, rootProps = {}) {
 				if (debug && treeArray[treeArray.length-2]._e !== event.target) console.error("event tree resolve failed", event.target, treeArray[treeArray.length-2]._e, indexes);
 				break;
 			}
+			if (tree._leaf===true) return;
 			tree = tree._c[indexes[i]];
 		}
 		
