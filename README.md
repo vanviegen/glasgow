@@ -134,7 +134,8 @@ Apart from installing and importing this library, you'll need to setup *babel* t
  * [Virtual DOM nodes](#virtual-dom-nodes)
  * [Components](#components)
     * [Component state](#component-state)
- * [Bindings <em>(experimental)</em>](#bindings-experimental)
+ * [Bindings](#bindings)
+ * [Inline SVGs](#inline-svgs)
 
 
 ### The glasgow module
@@ -163,9 +164,10 @@ The function returns a virtual DOM node.
   - `className`, `checked`, `value` and `selectedIndex` are DOM properties instead of HTML attributes. `null` values are ignored.
   - `style` can receive a style properties object instead of a style string.
   - When the attribute value is a function it is assumed to be an event handlers. (See: Event handlers.)
-  - `key`, `binding` and attributes starting with `_` are not set as HTML attributes.
+  - `key` is used for keeping track of element, (See: Reconciliation.)
+  - `binding` is used for creating two-way bindings on INPUT elements. (See: Bindings.)
   
-  Of course, when `tag` is a function, none of this applies, and the `props` are just passed as the first argument to this component function.
+  With the exception of `key`, the above only applies when `tag` is a string. When it is a function the `props` are just passed as the first argument to this component function.
 
 - `children` is an optional array of (arrays of) virtual DOM nodes. `null` values are ignored.
 
@@ -496,7 +498,7 @@ function Fetcher(props) {
 
 
 
-### Bindings *(experimental)*
+### Bindings
 
 Bindings are a shortcut for setting an `oninput` event handler and a initial value on an HTML `input` (or `textarea`, or `select`) element. This creates a two-way binding between the application data and the UI view.
 
@@ -527,6 +529,18 @@ function ListItem(props) {
 }
 ```
 
-Bindings support should be considered **experimental**, as not all input types are supported yet. At least `textarea` and `input` types `text`, `password`, `checkbox` and `number` *do* work. Feel free to file bugs (or pull requests!) for other types if you need them.
 
+### Inline SVGs
+
+When the "svg" tag is used, the element and all of its children will be created within the SVG namespace. This allows you to embed SVGs without ceremony:
+
+```jsx
+function MyIcon(props) {
+	return <div class="icon">
+		<svg onclick={alert} viewBox="0 0 16 16">
+			<path fill="currentColor" d="...." />
+		</svg>
+	</div>;
+}
+```
 

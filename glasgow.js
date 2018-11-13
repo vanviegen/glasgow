@@ -147,8 +147,9 @@ function mount(domParent, rootFunc, rootProps = {}) {
 			newNode._a = materialize(newNode);
 			return create(newNode._a, newNode, parentStable);
 		}
+		if (tag==='svg') newNode._svg = true;
 		
-		let el = document.createElement(tag);
+		let el = newNode._svg ? document.createElementNS("http://www.w3.org/2000/svg", tag) : document.createElement(tag);
 		domWrites++;
 		if (debug>=3) glasgow.log('glasgow update create', tag);
 		let func = newNode.oncreate || newNode.create;
@@ -226,6 +227,12 @@ function mount(domParent, rootFunc, rootProps = {}) {
 		let newChildren = newNode._c;
 		let oldChildren = oldNode._c; // === NON_TOP_EMPTY_CHILDREN when parent is newly create
 
+		// SVG tag is propagated recursively
+		const svg = newNode._svg;
+		if (svg) {
+			for(let child of newChildren) child._svg = true;
+		}
+	
 		// First, we'll try to match the head and tail
 		let start, end, count = Math.min(newChildren.length, oldChildren.length);
 
@@ -376,6 +383,8 @@ function mount(domParent, rootFunc, rootProps = {}) {
 			} else if (prop === 'style' && typeof newVal === 'object') {
 				if (oldVal) dom.style = '';
 				Object.assign(dom.style, newVal);
+			} else if (svg) {
+				dom.setAttributeNS(null, prop, newVal);
 			} else {
 				dom.setAttribute(prop, newVal);
 			}
