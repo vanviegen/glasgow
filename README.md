@@ -117,7 +117,10 @@ Apart from installing and importing this library, you'll need to setup *babel* t
     * [glasgow.fadeIn(props, {element, parentStable})](#glasgowfadeinprops-element-parentstable)
     * [glasgow.fadeOut(props, {element, parentStable})](#glasgowfadeoutprops-element-parentstable)
     * [glasgow.transition({element, from, to, time, easing, keep})](#glasgowtransitionelement-from-to-time-easing-keep)
-    * [Proxy functions to the current instance](#proxy-functions-to-the-current-instance)
+    * [glasgow.refresh()](#glasgowrefresh)
+    * [glasgow.refreshNow()](#glasgowrefreshNow)
+    * [glasgow.refreshify(func)](#glasgowrefreshifyfunc)
+    * [glasgow.fetch(...)](#glasgowfetch)
  * [Instances](#instances)
     * [instance.refresh()](#instancerefresh)
     * [instance.refreshNow()](#instancerefreshnow)
@@ -128,9 +131,9 @@ Apart from installing and importing this library, you'll need to setup *babel* t
  * [Reconciliation](#reconciliation)
  * [Event handlers](#event-handlers)
     * [Event delegation](#event-delegation)
-    * [oncreate <em>(experimental)</em>](#oncreate-experimental)
-    * [onremove <em>(experimental)</em>](#onremove-experimental)
-    * [onrefresh](#onrefresh)
+    * [oncreate](#oncreate)
+    * [onremove](#onremove)
+    * [onrefresh *(experimental)*](#onrefresh-experimental)
  * [Virtual DOM nodes](#virtual-dom-nodes)
  * [Components](#components)
     * [Component state](#component-state)
@@ -381,7 +384,7 @@ As glasgow uses event delegation, `addEventListener` will only be called once pe
 
 Because of this, having lots of event handlers in your tree will not require them to be reattached on every refresh, even when you're creating new bindings or new function instances in each refresh.
 
-#### oncreate *(experimental)*
+#### oncreate
 
 `oncreate` is a special case event, as it is not a DOM event. It is fired right after the refresh has performed all required DOM updates, but before returning control back to the browser.
 
@@ -399,9 +402,7 @@ Where...
 - `props` is the properties object of the component containing this DOM element.
 - `node` is the virtual DOM node (containing the attributes) for the new DOM element.
 
-This method is marked **experimental** because I'm considering changing semantics on this in the at some point.
-
-#### onremove *(experimental)*
+#### onremove
 
 `onremove` is a special case event, as it is not a DOM event. It is fired right before an element is removed from the DOM.
 
@@ -422,9 +423,7 @@ Where...
 When `parentStable == true` and the event handler returns a Promise, the element will be preserved in the DOM until the Promise resolves. This comes in handy for fade-out transitions, and such. (See: Transitions.)
 
 
-This method is marked **experimental** because I'm considering changing semantics on this in the at some point.
-
-#### onrefresh
+#### onrefresh *(experimental)*
 
 `onrefresh` is a special case event, as it is not a DOM event. It is fired after every refresh, before returning control back to the browser.
 
