@@ -566,65 +566,42 @@ function mount(domParent, rootFunc, rootProps = {}) {
 	
 }
 
-
-
-function fadeIn(event) {
-	if (event.parentStable) transition({
+function fadeOut(event) {
+	if (event.parentStable) return glasgow.transition({
 		element: this,
-		from: {
-			height: "1px",
-			opacity: 0,
-			overflow: 'hidden',
-			marginTop: "0px",
-			marginBottom: "0px",
-			paddingTop: "0px",
-			paddingBottom: "0px",
-			boxSizing: "border-box",
-			width: this.offsetWidth+'px',
-			maxWidth: "none",
-			minWidth: "none",
-			maxHeight: "none",
-			minHeight: "none"
-		},
 		to: {
-			height: this.offsetHeight+'px',
-			opacity: 1,
-			marginTop: "original",
-			marginBottom: "original",
-			paddingTop: "original",
-			paddingBottom: "original"
-		}
+			marginTop: (this.offsetHeight / -2) + 'px',
+			marginBottom: (this.offsetHeight / -2) + 'px',
+			opacity: 0,
+			transform: "scaleY(0)"
+		},
+		keep: true,
+		easing: 'ease-out'
 	});
 }
 
-function fadeOut(event) {
-	if (event.parentStable) return transition({
+function fadeIn(event) {
+	if (event.parentStable) return glasgow.transition({
 		element: this,
 		from: {
-			overflow: 'hidden',
-			height: this.offsetHeight+'px',
-			boxSizing: "border-box",
-			width: this.offsetWidth+'px',
-			maxWidth: "none",
-			minWidth: "none",
-			maxHeight: "none",
-			minHeight: "none"
+			marginTop: (this.offsetHeight / -2) + 'px',
+			marginBottom: (this.offsetHeight / -2) + 'px',
+			opacity: 0,
+			transform: "scaleY(0)"
 		},
 		to: {
-			height: '0px',
-			opacity: 0,
-			marginTop: "0px",
-			marginBottom: "0px",
-			paddingTop: "0px",
-			paddingBottom: "0px"
+			marginTop: getComputedStyle(this).getPropertyValue('margin-top'),
+			marginBottom: getComputedStyle(this).getPropertyValue('margin-bottom'),
+			opacity: 1,
+			transform: "scaleY(1)"
 		},
-		keep: true
+		easing: 'ease-out'
 	});
 }
 
 function transition({element, from, to, time, easing, keep}) {
 	time = time || 400;
-	easing = easing || 'ease';
+	easing = easing || 'ease-out';
 
 	let original = {};
 	for(let k in from) {
