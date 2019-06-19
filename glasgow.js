@@ -29,6 +29,14 @@ export default function glasgow(tag, props) {
 	else if (debug && Object.getPrototypeOf(props) !== Object.prototype) {
 		throw new Error("second parameter should be a plain javascript object or null");
 	}
+
+	if (typeof tag === 'string') {
+		let pos = tag.indexOf('.');
+		if (pos>=0) {
+			props.className = tag.substr(pos+1).replace(/\./g, ' ');
+			tag = tag.substr(0,pos) || 'div';
+		}
+	}
 	
 	props._t = tag;
 
