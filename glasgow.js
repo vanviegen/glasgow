@@ -2,9 +2,10 @@
 // (c) Frank van Viegen
 // MIT license
 
-const NON_TOP_EMPTY_CHILDREN = [];
-const NON_TOP_EMPTY_NODE = {_c: NON_TOP_EMPTY_CHILDREN};
-for(let obj of [NON_TOP_EMPTY_CHILDREN, NON_TOP_EMPTY_NODE])
+const EMPTY_CHILDREN = [];
+const EMPTY_ATTRS = {};
+const EMPTY_NODE = {attrs: EMPTY_ATTRS, children: EMPTY_CHILDREN};
+for(let obj of [EMPTY_CHILDREN, EMPTY_ATTRS, EMPTY_NODE])
 	Object.freeze(obj);
 
 const NOT_HANDLED = {}; // constant that can be returned by event handlers
@@ -19,45 +20,54 @@ let debug = 1;
 	// 2. reserved
 	// 3. same as 1 + glasgow.log every DOM update
 
+function VNode(tag, attrs, children, key) {
+	this.tag = tag;
+	this.attrs = attrs;
+	this.children = children;
+}
 
-export default function glasgow(tag, props) {
-	if (debug && typeof tag !== 'string' && typeof tag !== 'function') {
-		throw new Error("first parameter should be a tag string or a component function");
+export default function glasgow(tag, attrs, ...rest) {
+	let children = [];
+
+	if (attrs==null || typeof attrs!=='object' || attrs instanceof Array || attrs instanceof VNode) {
+		// not actually attrs, just a child
+		addChild(children, attrs);
+		attrs = {};
 	}
-	
-	if (props==null) props = {};
-	else if (debug && Object.getPrototypeOf(props) !== Object.prototype) {
-		throw new Error("second parameter should be a plain javascript object or null");
+	for(let r of rest) {
+		addChild(children, r);;
 	}
 
 	if (typeof tag === 'string') {
-		let pos = tag.indexOf('.');
+		let pos = tag.indexOf('@');
 		if (pos>=0) {
-			props.className = tag.substr(pos+1).replace(/\./g, ' ');
-			tag = tag.substr(0,pos) || 'div';
+			attrs.key = tag.substr(pos+1);
+			tag = tag.substr(0, pos);
 		}
+		pos = tag.indexOf('.');
+		if (pos>=0) {
+			attrs.className = tag.substr(pos+1).replace(/\./g, ' ');
+			tag = tag.substr(0,pos);
+		}
+		tag = tag||'div';
+	} else if (debug && typeof tag !== 'function') {
+		throw new Error("first parameter should be a tag string or a component function");
 	}
-	
-	props._t = tag;
 
-	var children = props._c = [];
-	for(let i=2; i<arguments.length; i++) {
-		addChild(children, arguments[i]);
-	}
-	
-	return props;
+	return new VNode(tag, attrs, children);
 };
 
 function addChild(children, child) {
 	if (child == null) return; // null or undefined
 	let type = typeof child;
 	if (type === 'object') {
+		if (child instanceof VNode) return children.push(child);
 		if (child instanceof Array) {
-			for(let j=0; j<child.length; j++) addChild(children, child[j]);
+			for(let c of child) {
+				addChild(children, c);
+			}
 			return;
 		}
-		let tagType = typeof child._t;
-		if (tagType === 'string' || tagType === 'function') return children.push(child);
 	}
 	else if (type === 'number') return children.push(''+child);
 	else if (type === 'string') return children.push(child);
@@ -66,33 +76,33 @@ function addChild(children, child) {
 }
 
 
-function propsEqual(p1,p2) {
+function attrsEqual(p1,p2) {
 	for(let k in p1) {
-		if (k[0]!=='_' && k[0]!=='$' && p1[k]!==p2[k]) return false;
+		if (k[0]!=='$' && p1[k]!==p2[k]) return false;
 	}
 	for(let k in p2) {
-		if (k[0]!=='_' && k[0]!=='$' && !p1.hasOwnProperty(k)) return false;
+		if (k[0]!=='$' && !p1.hasOwnProperty(k)) return false;
 	}
 	return true;
 }
 
 
-function resolveBinding(binding, props) {
-	if (typeof binding === 'string') return [props,binding];
+function resolveBinding(binding, attrs) {
+	if (typeof binding === 'string') return [attrs,binding];
 	for(let i=0; i<binding.length-1; i++) {
 		let term = binding[i];
-		props = typeof term === 'object' ? term : (props[term] = props[term] || {});
+		attrs = typeof term === 'object' ? term : (attrs[term] = attrs[term] || {});
 	}
-	return [props, binding[binding.length-1]];
+	return [attrs, binding[binding.length-1]];
 }
 
-function writeBinding(binding, props, value) {
-	let [obj,key] = resolveBinding(binding, props);
+function writeBinding(binding, attrs, value) {
+	let [obj,key] = resolveBinding(binding, attrs);
 	obj[key] = value;
 }
 
-function readBinding(binding, props) {
-	let [obj,key] = resolveBinding(binding, props);
+function readBinding(binding, attrs) {
+	let [obj,key] = resolveBinding(binding, attrs);
 	return obj[key];
 }
 
@@ -116,7 +126,7 @@ function refreshify(func) {
 
 function mount(domParent, rootFunc, rootProps = {}) {
 
-	let treeRoot = {_t: rootFunc, _a: {_t: 'div', _c: []}};
+	let treeRoot = {tag: rootFunc, attrs: {}, concrete: {tag: 'div', attrs: {}, children: []}};
 	let domRoot = document.createElement('div');
 	domParent.appendChild(domRoot);
 
@@ -135,51 +145,50 @@ function mount(domParent, rootFunc, rootProps = {}) {
 	return instance;
 
 	function materialize(newNode) {
-		let res = newNode._t(newNode, newNode._c);
-		delete newNode._c;
+		let res = newNode.tag(newNode.attrs, newNode.children);
+		delete newNode.children;
 
 		let arr = [];
 		addChild(arr, res);
-		return arr.length===1 ? arr[0] : {_t:'div', _c: arr};
+		return arr.length===1 ? arr[0] : {tag: 'div', attrs: {}, children: arr};
 	}
 
-	function create(newNode, props, parentStable) {
+	function create(newNode, context, parentStable) {
 		if (typeof newNode === 'string') {
 			domWrites++;
 			if (debug>=3) glasgow.log('glasgow update create TextNode', newNode);
 			return document.createTextNode(newNode);
 		}
 
-		let tag = newNode._t;
+		let tag = newNode.tag;
 		if (typeof tag === 'function') { // create a component
-			newNode._a = materialize(newNode);
-			return create(newNode._a, newNode, parentStable);
+			newNode.concrete = materialize(newNode);
+			return create(newNode.concrete, newNode.attrs, parentStable);
 		}
-		if (tag==='svg') newNode._svg = true;
+		if (tag==='svg') newNode.svg = true;
 		
-		let el = newNode._svg ? document.createElementNS("http://www.w3.org/2000/svg", tag) : document.createElement(tag);
+		let el = newNode.svg ? document.createElementNS("http://www.w3.org/2000/svg", tag) : document.createElement(tag);
 		domWrites++;
 		if (debug>=3) glasgow.log('glasgow update create', tag);
-		let func = newNode.oncreate || newNode.create;
-		if (typeof func==='function') afterRefresh(func, el, [{type:'create', parentStable}, props, newNode]);
-		patch(newNode, NON_TOP_EMPTY_NODE, [el], props);
+		let func = newNode.attrs.oncreate || newNode.attrs.create;
+		if (typeof func==='function') afterRefresh(func, el, [{type:'create', parentStable}, context, newNode]);
+		patch(newNode, EMPTY_NODE, [el], context);
 		return el;
 	}
 	
 	function canPatch(newNode, oldNode) {
-		let type = typeof newNode;
-		return type === typeof oldNode && (
-						 type==='string' || (
-							 newNode.key === oldNode.key &&
-							 newNode._t === oldNode._t
-						 )
-					 );
+		return typeof newNode === typeof oldNode && (
+			typeof newNode === 'string' || (
+				newNode.tag === oldNode.tag &&
+				newNode.attrs.key === oldNode.attrs.key
+		 	)
+		 );
 	}
 	
 	function patch(newNode, oldNode, domPath, context) {
 		if (debug) {
-			if (newNode._e) console.error('double patch', newNode, resolveDomPath(domPath));
-			if (oldNode._e && oldNode._e !== resolveDomPath(domPath)) console.error('dom element not properly matched with old node', oldNode, resolveDomPath(domPath));
+			if (newNode.dbgEl) console.error('double patch', newNode, resolveDomPath(domPath));
+			if (oldNode.dbgEl && oldNode.dbgEl !== resolveDomPath(domPath)) console.error('dom element not properly matched with old node', oldNode, resolveDomPath(domPath));
 		}
 
 		if (typeof newNode === 'string') {
@@ -193,25 +202,24 @@ function mount(domParent, rootFunc, rootProps = {}) {
 
 		let domPathPos = domPath.length;
 
-		let tag = newNode._t;
+		let tag = newNode.tag;
 		if (typeof tag === 'function') { // a component
-			// When the properties match, we will transfer state from the old component.
-			if (oldNode._t && propsEqual(newNode,oldNode)) {
-				oldNode._c = newNode._c;
-				newNode = oldNode;
+			// When the attributes match, we will transfer state from the old component.
+			if (newNode.attrs!==oldNode.attrs && attrsEqual(newNode.attrs,oldNode.attrs)) {
+				newNode.attrs = oldNode.attrs;
 			}
 
 			let materialized = materialize(newNode);
-		
-			if (canPatch(materialized, oldNode._a)) {
-				newNode._a = patch(materialized, oldNode._a, domPath, newNode);
+
+			if (canPatch(materialized, oldNode.concrete)) {
+				newNode.concrete = patch(materialized, oldNode.concrete, domPath, newNode.attrs);
 			} else {
 				// the top-level tag or key for this component changed
-				destroy(oldNode._a, oldNode);
-				newNode._a = materialized;
+				destroy(oldNode.concrete, oldNode);
+				newNode.concrete = materialized;
 
 				let parentE = resolveDomPath(domPath, domPathPos-1);
-				let newE = create(materialized, newNode, true);
+				let newE = create(materialized, newNode.attrs, true);
 				let oldE = resolveDomPath(domPath);
 				parentE.replaceChild(newE, oldE);
 
@@ -227,18 +235,18 @@ function mount(domParent, rootFunc, rootProps = {}) {
 			return newNode;
 		}
 		
-		if (debug) newNode._e = resolveDomPath(domPath);
+		if (debug) newNode.dbgEl = resolveDomPath(domPath);
 		
 		let dom;
 		
 		// Now let's sync some children
-		let newChildren = newNode._c;
-		let oldChildren = oldNode._c; // === NON_TOP_EMPTY_CHILDREN when parent is newly create
+		let newChildren = newNode.children;
+		let oldChildren = oldNode.children; // === EMPTY_CHILDREN when parent is newly create
 
 		// SVG tag is propagated recursively
-		const svg = newNode._svg;
+		const svg = newNode.svg;
 		if (svg) {
-			for(let child of newChildren) child._svg = true;
+			for(let child of newChildren) child.svg = true;
 		}
 	
 		// First, we'll try to match the head and tail
@@ -270,9 +278,10 @@ function mount(domParent, rootFunc, rootProps = {}) {
 			if (oldChildren.length > start) {
 				domPath[domPathPos] = start;
 				insertBeforeE = resolveDomPath(domPath);
+				let key;
 				for(let i=start; i<oldChildren.length-end; i++) {
 					let child = oldChildren[i];
-					if (typeof child === 'object' && child.key) oldKeys[child.key] = i;
+					if (typeof child === 'object' && (key=child.attrs.key)) oldKeys[key] = i;
 					if (debug && !insertBeforeE) throw new Error("element missing");
 					oldElements.push(insertBeforeE); // at i-start
 					insertBeforeE = insertBeforeE.nextSibling;
@@ -284,7 +293,7 @@ function mount(domParent, rootFunc, rootProps = {}) {
 			let newKeys = {};
 			for(let i=start; i<newChildren.length-end; i++) {
 				let child = newChildren[i];
-				if (typeof child === 'object' && child.key) newKeys[child.key] = i;
+				if (typeof child === 'object' && (key=child.attrs.key)) newKeys[key] = i;
 			}
 
 			// Now for each item in the (yet unsynced) middle range of the new child
@@ -295,7 +304,7 @@ function mount(domParent, rootFunc, rootProps = {}) {
 				let childDom = undefined;
 				let newChild = newChildren[i];
 				if (typeof newChild === 'object') {
-					let idx, newKey = newChild.key;
+					let idx, newKey = newChild.attrs.key;
 					if (newKey && (idx = oldKeys[newKey]) && canPatch(newChild, oldChildren[idx])) {
 						// Okay, we can recycle a keyed object
 						childDom = oldElements[idx-start];
@@ -307,8 +316,8 @@ function mount(domParent, rootFunc, rootProps = {}) {
 						let endJ = Math.min(i+5, oldChildren.length)
 						for(let j=Math.max(i-5,0); j<endJ; j++) {
 							let oldChild = oldChildren[j];
-							if (typeof oldChild === 'object' && oldChild._t === newChild._t && oldElements[j-start]) {
-								let oldKey = oldChild.key;
+							if (typeof oldChild === 'object' && oldChild.tag === newChild.tag && oldElements[j-start]) {
+								let oldKey = oldChild.attrs.key;
 								if (!oldKey || (oldKey[0]==='~' && newKeys[oldKey]==null)) {
 									childDom = oldElements[j-start];
 									oldElements[j-start] = undefined;
@@ -323,7 +332,7 @@ function mount(domParent, rootFunc, rootProps = {}) {
 						}
 					}
 				}
-				if (!childDom) childDom = create(newChild, context, oldChildren!==NON_TOP_EMPTY_CHILDREN);
+				if (!childDom) childDom = create(newChild, context, oldChildren!==EMPTY_CHILDREN);
 				dom.insertBefore(childDom, insertBeforeE);
 				domWrites++;
 				if (debug>=3) glasgow.log('glasgow update insert node', childDom);
@@ -336,17 +345,17 @@ function mount(domParent, rootFunc, rootProps = {}) {
 				if (element) {
 					let child = oldChildren[start+i];
 					if (typeof child !== 'string') {
-						if (child._t === 'kept') {
+						if (child.tag === 'kept') {
 							newChildren.splice(insertKept++, 0, child);
 							continue;
 						}
 						let res = destroy(child, context, element);
 						if (res && typeof res.then === 'function') {
-							let kept = {_t: 'kept', _c: []};
+							let kept = {tag: 'kept', children: [], attrs: {}};
 							newChildren.splice(insertKept++, 0, kept);
 							(function(kept) {
 								res.then(function() {
-									kept._t = 'discard';
+									kept.tag = 'discard';
 									instance.refreshNow();
 								});
 							})(kept);
@@ -362,23 +371,25 @@ function mount(domParent, rootFunc, rootProps = {}) {
 		domPath.length = domPathPos;
 		
 		
-		// That's it for the children. And now for the properties!
-		if (newNode.binding) bind(newNode, context);
-		
-		for(let prop in newNode) {
-			if (prop==='key' || prop==='binding' || prop[0]==='_') continue;
+		// That's it for the children. And now for the attributes!
+		let newAttrs = newNode.attrs;
+		let oldAttrs = oldNode.attrs;
+		if (newAttrs.binding) bind(newNode, context);
+
+		for(let attr in newAttrs) {
+			if (attr==='key' || attr==='binding') continue;
 			
-			let newVal = newNode[prop];
+			let newVal = newAttrs[attr];
 			if (typeof newVal === 'function') {
-				if (prop.substr(0,2)==='on') prop = prop.substr(2);
-				if (!allDelegatedEvents[prop]) {
-					if (debug) glasgow.log('glasgow delegating event type', prop);
-					newDelegatedEvents[prop] = allDelegatedEvents[prop] = true;
+				if (attr.substr(0,2)==='on') attr = attr.substr(2);
+				if (!allDelegatedEvents[attr]) {
+					if (debug) glasgow.log('glasgow delegating event type', attr);
+					newDelegatedEvents[attr] = allDelegatedEvents[attr] = true;
 				}
 				continue;
 			}
 			
-			let oldVal = oldNode[prop];
+			let oldVal = oldAttrs[attr];
 			if (newVal === oldVal) continue;
 			if (newVal == null) {
 				if (oldVal == null) continue;
@@ -386,23 +397,23 @@ function mount(domParent, rootFunc, rootProps = {}) {
 			}
 
 			dom = dom || resolveDomPath(domPath);
-			if (prop === 'checked' || prop === 'value' || prop === 'className' || prop === 'selectedIndex' || prop === 'disabled') {
-				dom[prop] = newVal;
-			} else if (prop === 'style' && typeof newVal === 'object') {
+			if (attr === 'checked' || attr === 'value' || attr === 'className' || attr === 'selectedIndex' || attr === 'disabled') {
+				dom[attr] = newVal;
+			} else if (attr === 'style' && typeof newVal === 'object') {
 				if (oldVal) dom.style = '';
 				Object.assign(dom.style, newVal);
 			} else if (svg) {
-				dom.setAttributeNS(null, prop, newVal);
+				dom.setAttributeNS(null, attr, newVal);
 			} else {
-				dom.setAttribute(prop, newVal);
+				dom.setAttribute(attr, newVal);
 			}
 			domWrites++;
-			if (debug>=3) glasgow.log('glasgow update set attribute', prop, newVal);
+			if (debug>=3) glasgow.log('glasgow update set attribute', attr, newVal);
 		}
 
-		for(let key in oldNode) {
-			if (key[0]==='_' || typeof oldNode[key]==='function') continue;
-			if (newNode.hasOwnProperty(key)) continue;
+		for(let key in oldAttrs) {
+			if (typeof oldAttrs[key]==='function') continue;
+			if (newAttrs.hasOwnProperty(key)) continue;
 			dom = dom || resolveDomPath(domPath);	 
 			if (key === 'style' || key === 'checked' || key === 'value' || key === 'className') {
 				dom[key] = '';
@@ -413,7 +424,7 @@ function mount(domParent, rootFunc, rootProps = {}) {
 			if (debug>=3) glasgow.log('glasgow update unset attribute', key);
 		}
 
-		let func = newNode.onrefresh || newNode.refresh;
+		let func = newNode.attrs.onrefresh || newNode.attrs.refresh;
 		if (typeof func==='function') afterRefresh(func, resolveDomPath(domPath), [{type:"refresh"}, context, newNode]);
 		
 		return newNode;
@@ -436,12 +447,12 @@ function mount(domParent, rootFunc, rootProps = {}) {
 		let startTime = new Date();
 
 		if (debug && !canPatch(treeRoot, oldTree)) console.error("root cannot be patched", treeRoot, oldTree);
-		treeRoot = patch(treeRoot, oldTree, [domRoot]);
+		treeRoot = patch(treeRoot, oldTree, [domRoot], {});
 
-		for(let prop in newDelegatedEvents) {
-			domRoot.addEventListener(prop, delegator);
+		for(let event in newDelegatedEvents) {
+			domRoot.addEventListener(event, delegator);
 			domWrites++;
-			if (debug>=3) glasgow.log('glasgow update add event listener', prop);
+			if (debug>=3) glasgow.log('glasgow update add event listener', event);
 		}
 		newDelegatedEvents = {};
 
@@ -464,15 +475,15 @@ function mount(domParent, rootFunc, rootProps = {}) {
 		domParent.removeChild(domRoot);
 	}
 	
-	function destroy(node, props, element) {
+	function destroy(node, attrs, element) {
 		if (typeof node === 'string') return;
-		if (node._a) return destroy(node._a, node, element);
-		let children = node._c;
+		if (node.concrete) return destroy(node.concrete, node, element);
+		let children = node.children;
 		for(let i = 0; i < children.length; i++) {
-			destroy(children[i], props);
+			destroy(children[i], attrs);
 		}
-		let func = node.onremove || node.remove;
-		if (typeof func==='function') return func.call(element, {type: "remove", parentStable: !!element}, props, node);
+		let func = node.attrs.onremove || node.attrs.remove;
+		if (typeof func==='function') return func.call(element, {type: "remove", parentStable: !!element}, attrs, node);
 	}
 	
 	function resolveDomPath(path,limit) {
@@ -510,18 +521,17 @@ function mount(domParent, rootFunc, rootProps = {}) {
 		let treeArray = [];
 		let i = indexes.length;
 		while(true) {
-			while(tree._a) {
-				context = tree;
-				tree = tree._a;
+			while(tree.concrete) {
+				context = tree.attrs;
+				tree = tree.concrete;
 			}
-			if (tree._t==='kept') break; // not really part of the virtual DOM anymore
+			if (tree.tag==='kept') break; // not really part of the virtual DOM anymore
 			treeArray.push(tree, context);
 			if (--i < 0) {
-				if (debug && treeArray[treeArray.length-2]._e !== event.target) console.error("event tree resolve failed", event.target, treeArray[treeArray.length-2]._e, indexes);
+				if (debug && treeArray[treeArray.length-2].dbgEl !== event.target) console.error("event tree resolve failed", event.target, treeArray[treeArray.length-2].dbgEl, indexes);
 				break;
 			}
-			if (tree._leaf===true) return;
-			tree = tree._c[indexes[i]];
+			tree = tree.children[indexes[i]];
 		}
 		
 
@@ -533,11 +543,11 @@ function mount(domParent, rootFunc, rootProps = {}) {
 		let doRefresh = false;
 		for (let i = treeArray.length-2; i >= 0; i-=2) {
 			let node = treeArray[i];
-			let func = node[ontype] || node[type];
+			let func = node.attrs[ontype] || node.attrs[type];
 			if (typeof func==='function') {
 				doRefresh = true;
-				let props = treeArray[i+1];
-				let res = func.call(element, event, props, node);
+				let attrs = treeArray[i+1];
+				let res = func.call(element, event, attrs, node);
 				if (res !== glasgow.NOT_HANDLED) {
 					event.preventDefault();
 					event.stopPropagation();
@@ -549,18 +559,18 @@ function mount(domParent, rootFunc, rootProps = {}) {
 		if (doRefresh) refreshNow();
 	}
 	
-	function bindingEventHandler(event, props, node) {
-		let val = (node.type === 'checkbox') ? (node.checked = this.checked) :
-							(node.type === 'number') ? parseFloat(node.value = this.value) :
-							(node.value = this.value);
-		writeBinding(node.binding, props, val);
+	function bindingEventHandler(event, context, node) {
+		let val = (node.attrs.type === 'checkbox') ? (node.attrs.checked = this.checked) :
+							(node.attrs.type === 'number') ? parseFloat(node.attrs.value = this.value) :
+							(node.attrs.value = this.value);
+		writeBinding(node.attrs.binding, context, val);
 	}
 	
-	function bind(node, props) {
-		let val = readBinding(node.binding, props);
-		if (node.type === 'checkbox') node.checked = !!val;
-		else node.value = val==null ? "" : ""+val;
-		node.oninput = bindingEventHandler;
+	function bind(node, context) {
+		let val = readBinding(node.attrs.binding, context);
+		if (node.attrs.type === 'checkbox') node.attrs.checked = !!val;
+		else node.attrs.value = val==null ? "" : ""+val;
+		node.attrs.oninput = bindingEventHandler;
 	}
 	
 	function getTree() {
