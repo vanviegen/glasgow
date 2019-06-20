@@ -39,9 +39,13 @@ An easy-to-use JavaScript library for building user interfaces in a *functional 
 
 ## Example usage
 
-```jsx
-// First we'll instruct the JSX compiler to generate `glasgow(..)` calls:
-/** @jsx glasgow */
+### Without JSX
+```js
+
+// Load the glasgow library from a CDN. As we will be using the default 
+// function continuously in places where we want to avoid clutter, I'll
+// give it a really short name: G.
+import G from 'https://cdn.jsdelivr.net/npm/glasgow@0.5.0/glasgow.js';
 
 
 // I'm using global state here for the list. We could have also chosen to pass
@@ -53,24 +57,91 @@ let list = [];
 // This is the component for a single ToDo-item. Components are just functions.
 // A component gets a (JSX) attributes object and an array of children (which
 // we're ignoring here).
-function Item(props, children) {
+function Item(attrs, children) {
+  return G('li',
+    G('.text', attrs.key),
+    G('.delete', {click: deleteItem}, 'x')
+  );
+}
+
+// This the onclick handler for the delete-button. Notice how we didn't need to
+// bind the function, as the component's `attrs` are provided by Glasgow.
+function deleteItem(event, attrs) {
+  // We're just modifying regular JavaScript variables here. Glasgow will 
+  // refresh the UI after we return from the event handler.
+  list.splice(list.indexOf(attrs.key), 1);
+}
+
+
+// This is our main component.
+function ToDo(attrs, children) {
+  // The JavaScript `map` function is used to translate the list of ToDo-items 
+  // into a list of virtual DOM elements.
+  // `key` is kind of a special attribute, as it's also used to match-up old
+  // elements with new elements when doing a refresh. (See: Reconciliation.)
+  return G('main',
+    G('h1', 'Mandatory ToDo example'),
+    G('ul',
+      list.map(key => G(Item, {key}))
+    ),
+    G('input', {type: 'text', placeholder: 'New item', binding: '$newItem'}),
+    G('input', {type: 'button', value: 'Add', click: addItem})
+  )
+  // We're binding the text input to `$newItem`, meaning it is synced with
+  // `attrs.$newItem`. (See: Bindings.)
+  // The $-sign indicates that this is a state-variable, which means that its
+  // value is kept when redrawing. (See: Component state.)
+}
+
+function addItem(event, attrs) {
+  list.push(attrs.$newItem);
+  attrs.$newItem = "";
+}
+
+
+// And this is where we add the ToDo component to the DOM. Presto!
+glasgow.mount(document.body, ToDo);
+```
+
+
+### With JSX
+
+
+```jsx
+// First we'll instruct the JSX compiler to generate `glasgow(..)` calls:
+/** @jsx glasgow */
+
+// Import glasgow from npm package.
+import glasgow from 'glasgow';
+
+
+// I'm using global state here for the list. We could have also chosen to pass
+// the state down the chain, but I want to stress the point that nothing
+// special is going on here.
+let list = [];
+
+
+// This is the component for a single ToDo-item. Components are just functions.
+// A component gets a (JSX) attributes object and an array of children (which
+// we're ignoring here).
+function Item(attrs, children) {
   return <li>
-    <div class="text">{props.key}</div>
+    <div class="text">{attrs.key}</div>
     <div class="delete" onclick={deleteItem}>x</div>
   </li>;
 }
 
 // This the onclick handler for the delete-button. Notice how we didn't need to
-// bind the function, as the component's `props` are provided by Glasgow.
-function deleteItem(event, props) {
+// bind the function, as the component's `attrs` are provided by Glasgow.
+function deleteItem(event, attrs) {
   // We're just modifying regular JavaScript variables here. Glasgow will 
   // refresh the UI after we return from the event handler.
-  list.splice(list.indexOf(props.key), 1);
+  list.splice(list.indexOf(attrs.key), 1);
 }
 
 
 // This is our main component.
-function ToDo(props, children) {
+function ToDo(attrs, children) {
   // The JavaScript `map` function is used to translate the list of ToDo-items 
   // into a list of virtual DOM elements.
   // `key` is kind of a special attribute, as it's also used to match-up old
@@ -84,14 +155,14 @@ function ToDo(props, children) {
     <input type="button" value="Add" onclick={addItem} />
   </main>;
   // We're binding the text input to `$newItem`, meaning it is synced with
-  // `props.$newItem`. (See: Bindings.)
+  // `attrs.$newItem`. (See: Bindings.)
   // The $-sign indicates that this is a state-variable, which means that its
   // value is kept when redrawing. (See: Component state.)
 }
 
-function addItem(event, props) {
-  list.push(props.$newItem);
-  props.$newItem = "";
+function addItem(event, attrs) {
+  list.push(attrs.$newItem);
+  attrs.$newItem = "";
 }
 
 
@@ -109,13 +180,13 @@ Apart from installing and importing this library, you'll need to setup *babel* t
 ## Reference manual
 
  * [The glasgow module](#the-glasgow-module)
-    * [glasgow(tag, props, ..children)](#glasgowtag-props-children)
+    * [glasgow(tag, attrs, ..children)](#glasgowtag-attrs-children)
        * [Example](#example)
     * [glasgow.mount(domParent, component)](#glasgowmountdomparent-component)
        * [Examples](#examples)
     * [glasgow.setDebug(debug)](#glasgowsetdebugdebug)
-    * [glasgow.fadeIn(props, {element, parentStable})](#glasgowfadeinprops-element-parentstable)
-    * [glasgow.fadeOut(props, {element, parentStable})](#glasgowfadeoutprops-element-parentstable)
+    * [glasgow.fadeIn(attrs, {element, parentStable})](#glasgowfadeinattrs-element-parentstable)
+    * [glasgow.fadeOut(attrs, {element, parentStable})](#glasgowfadeoutattrs-element-parentstable)
     * [glasgow.transition({element, from, to, time, easing, keep})](#glasgowtransitionelement-from-to-time-easing-keep)
     * [glasgow.refresh()](#glasgowrefresh)
     * [glasgow.refreshNow()](#glasgowrefreshNow)
@@ -155,32 +226,32 @@ Or
 import glasgow from 'glasgow';
 ```
 
-#### glasgow(tag, props, ..children)
+#### glasgow(tag, [attrs,] ...children)
 
 Calls to this method are usually generated by the JSX compiler. But you're free to skip JSX entirely and make these calls yourself.
 
 The function returns a virtual DOM node.
 
-- `tag` is either a string containing an HTML element tag (like "div" or "a"), or a function, which will be used as a component. (See: Components.)
+- `tag` is either a string containing an HTML element tag (like "div" or "a"), or a function, which will be used as a component. (See: Components.) When using strings, there's a shorthand for specifying className and/or key values: `'div.myClassName.anotherClassName@myKey123'`. Both can also be set using `attrs`.
 
-- `props` is an optional JavaScript object containing HTML attributes. Some special cases:
+- `attrs` is an optional JavaScript object containing HTML attributes. Some special cases:
   - `className`, `checked`, `disabled`, `value` and `selectedIndex` are DOM properties instead of HTML attributes. `null` values are ignored.
   - `style` can receive a style properties object instead of a style string.
   - When the attribute value is a function it is assumed to be an event handlers. (See: Event handlers.)
   - `key` is used for keeping track of element, (See: Reconciliation.)
   - `binding` is used for creating two-way bindings on INPUT elements. (See: Bindings.)
   
-  With the exception of `key`, the above only applies when `tag` is a string. When it is a function the `props` are just passed as the first argument to this component function.
+  With the exception of `key`, the above only applies when `tag` is a string. When it is a function the `attrs` are just passed as the first argument to this component function.
 
 - `children` is an optional array of (arrays of) virtual DOM nodes. `null` values are ignored.
 
 ##### Example
 
 ```jsx
-function MyLink(props, children) {
+function MyLink(attrs, children) {
   return glasgow('a', {
     href: 'https://github.com/vanviegen/glasgow',
-    target: props.newWindow ? '_blank' : null,
+    target: attrs.newWindow ? '_blank' : null,
   }, children);
 }
   
@@ -190,13 +261,13 @@ glasgow('main', {},
 );
 ```
 
-#### glasgow.mount(domParent, func, props)
+#### glasgow.mount(domParent, func, attrs)
 
 Mount the component to the DOM, returning a glasgow instance. (See: Instances.)
 
 - `domParent` is just a DOM element to which a single child will be appended.
 - `func` is a (component) function.
-- `props` is an optional properties array passed as the first arguments of `func`.
+- `attrs` is an optional attributes array passed as the first arguments of `func`.
 
 ##### Examples
 
@@ -205,7 +276,7 @@ let instance = glasgow.mount(document.body, MyComponent, {list: [3,5,11], name: 
 ```
 
 ```jsx
-let instance = glasgow.mount(document.body, props => <section class="hello" />);
+let instance = glasgow.mount(document.body, attrs => <section class="hello" />);
 ```
 
 #### glasgow.setDebug(debug)
@@ -217,7 +288,7 @@ Configures the amount of (slow..!) extra checking and logging to perform. `debug
 - `2`: Reserved.
 - `3`: Verbose mode. Meaning: development mode + console.log all DOM updates.
 
-#### glasgow.fadeIn(props, {element, parentStable})
+#### glasgow.fadeIn(attrs, {element, parentStable})
 
 This built-it transition can be used as an event handler for `oncreate` events to achieve a grow-and-fade-in effect when an element first appears.
 
@@ -225,7 +296,7 @@ The effect wil only happen when the element's parent already existed *before* th
 
 See the example in the next section.
 
-#### glasgow.fadeOut(props, {element, parentStable})
+#### glasgow.fadeOut(attrs, {element, parentStable})
 
 This built-it transition can be used as an event handler for `onremove` events to achieve a shrink-and-fade-out effect when an element disappears from the DOM.
 
@@ -246,7 +317,7 @@ function List() {
 			key={item}
 			oncreate={glasgow.fadeIn}
 			onremove={glasgow.fadeOut}
-			onclick={props => list.splice(index,1)}
+			onclick={attrs => list.splice(index,1)}
 		>{"#"+item}</li>)}
 		<input type='submit' onclick={addItem} value="Add" />
 	</ul>
@@ -324,14 +395,14 @@ Reconciliation is the process of trying to match up elements in the new virtual 
 - User input in for example `input` elements can be lost of it is not synced with global state.
 - Even if user input is synced to global state, focus and cursor position may change while the user is typing.
 
-To force glasgow to get matching right, use `key` properties on components and elements that may jump around (or whose siblings jump around, appear or disappear).
+To force glasgow to get matching right, use `key` attributes on components and elements that may jump around (or whose siblings jump around, appear or disappear).
 
 Especially for dynamically updating lists, this is crucial. In this case, you will usually want to use some sort of primary key (say: a user id) as the `key`. Example:
 
 ```jsx
-function MyListComponent(props) {
+function MyListComponent(attrs) {
 	return <ul>
-		{props.list.map(item => <MyItemComponent key={item.id} item={item} />)}
+		{attrs.list.map(item => <MyItemComponent key={item.id} item={item} />)}
 	</ul>
 }
 ```
@@ -339,9 +410,9 @@ function MyListComponent(props) {
 When a `key` is specified, the element or component will *never* be matched to one that does not have the same key. *Unless* the key value starts with a `'~'` character (tilde). In that case the key is interpreted as only a hint that may be ignored. This can be useful when working with data that does not have (and cannot have) any form of primary key. You can use your *data value* as a `key` in order to still correctly track most changes. Example:
 
 ```jsx
-function MyListComponent(props) {
+function MyListComponent(attrs) {
 	return <ul>
-		{props.list.map(item => <MyItemComponent key={"~"+JSON.stringify(item)} item={item} />)}
+		{attrs.list.map(item => <MyItemComponent key={"~"+JSON.stringify(item)} item={item} />)}
 	</ul>
 }
 ```
@@ -367,13 +438,13 @@ Prefixing `on` to the event name is optional. Therefore, the following example i
 Event handlers receive arguments like this:
 
 ```jsx
-function handler(event, props, node) { ... }
+function handler(event, attrs, node) { ... }
 ```
 
 Where..
 - `this` is the DOM element that received the event.
 - `event` is the DOM event.
-- `props` is the properties object of the component containing this DOM element.
+- `attrs` is the attributes object of the component containing this DOM element.
 - `node` is the virtual DOM node (containing the attributes) for the DOM element that received the event.
 
 When the event handler returns anything other than `glasgow.NOT_HANDLED`, the event will not propagate further up the tree, and `preventDefault()` will be called on it.
@@ -391,7 +462,7 @@ Because of this, having lots of event handlers in your tree will not require the
 Event handlers receive arguments like this:
 
 ```jsx
-function createHandler(event, props, node) { ... }
+function createHandler(event, attrs, node) { ... }
 ```
 
 Where...
@@ -399,7 +470,7 @@ Where...
 - `event` object, containg:
 	- `type` is `"create"`
 	- `parentStable` is a boolean indicating whether the parent DOM element already existed earlier (`true`) or was also just created in this refresh (`false`). This is mostly useful for fade-in transitions and such.
-- `props` is the properties object of the component containing this DOM element.
+- `attrs` is the attributes object of the component containing this DOM element.
 - `node` is the virtual DOM node (containing the attributes) for the new DOM element.
 
 #### onremove
@@ -409,7 +480,7 @@ Where...
 Event handlers receive arguments like this:
 
 ```jsx
-function removeHandler(event, props, node) { ... }
+function removeHandler(event, attrs, node) { ... }
 ```
 
 Where...
@@ -417,7 +488,7 @@ Where...
 - `event` object, containg:
 	- `type` is `"remove"`
 	- `parentStable` is a boolean indicating whether the parent element will remain in the DOM (`true`) or will also be removed during this refresh (`false`). This is mostly useful for fade-out transitions and such.
-- `props` is the properties object of the component containing this DOM element.
+- `attrs` is the attributes object of the component containing this DOM element.
 - `node` is the virtual DOM node (containing the attributes) for the to-be-removed DOM element.
 
 When `parentStable == true` and the event handler returns a Promise, the element will be preserved in the DOM until the Promise resolves. This comes in handy for fade-out transitions, and such. (See: Transitions.)
@@ -430,14 +501,14 @@ When `parentStable == true` and the event handler returns a Promise, the element
 Event handlers receive arguments like this:
 
 ```jsx
-function refreshHandler(event, props, node) { ... }
+function refreshHandler(event, attrs, node) { ... }
 ```
 
 Where...
 - `this` is the DOM element.
 - `event` object, containing:
 	- `type` is `"refresh"`
-- `props` is the properties object of the component containing this DOM element.
+- `attrs` is the attributes object of the component containing this DOM element.
 - `node` is the virtual DOM node (containing the attributes) for the DOM element.
 
 This method is marked **experimental** because I'm considering changing semantics on this in the at some point. Perhaps an `onupdate` event, only firing when changes to the element or its children have been made, would be more useful.
@@ -448,7 +519,7 @@ This method is marked **experimental** because I'm considering changing semantic
 
 There are two types of virtual DOM nodes:
 
-- Objects returned by the `glasgow(...)` function. These are in fact just the properties objects, augmented with some underscore-prefixed keys that are implementation details to glasgow. You'll find keys like `_t` for tag, `_c` for children, and `_a` for the materialized tree of a component. You should not rely on these, as their semantics may change in minor releases.
+- `VNode` Objects returned by the `glasgow(...)` function.
 
 - Plain old JavaScript strings, which are rendered to DOM `TextNode`s.
 
@@ -458,40 +529,40 @@ There are two types of virtual DOM nodes:
 
 Components are just JavaScript functions that return a virtual DOM node. They receive two arguments:
 
-- `props`: a properties object, based on the JSX attributes. There are two special cases of properties, their keys starting with..
+- `attrs`: an attributes object, based on the JSX attributes. There are two special cases of attributes, their keys starting with...
   - `$`: these are state variables. (See: Component state.)
   - `_`: these are glasgow internals (such as `_t` for the tag and `_c` for children). You shouldn't rely on these, as their semantics may change in minor releases.
 - `children`: a (possibly empty) array of virtual DOM nodes. In case, as is common, your component doesn't need to display any caller-specified *content HTML*, you can just ignore this. For example, one can imagine a `PageTemplate` component receiving content. But a `Thumbnail` component probably woudn't.
 
 #### Component state
 
-State variables can be (but do not need to) specified as attributes by the caller like any other property. The difference with other properties, is that when you change their value (for instance from within a component function, a event handler or using a binding), glasgow tries to preserve their value across refreshes. For example:
+State variables can be (but do not need to) specified as attributes by the caller like any other attribute. The difference with other attributes, is that when you change their value (for instance from within a component function, a event handler or using a binding), glasgow tries to preserve their value across refreshes. For example:
 
 ```jsx
-function RefreshCounter(props) {
-  if (!props.$count) props.$count = 1;
-  return (props.$count++).toString();
+function RefreshCounter(attrs) {
+  if (!attrs.$count) attrs.$count = 1;
+  return (attrs.$count++).toString();
 }
 ```
-This example increments the number shown every time glasgow refreshes the UI. Of course, this kind-of breaks the one-way flow of information that makes reactive functional UI programming so easy to reason about. A rule of thumb is that you should only use local state for augmenting the information you received by means of regular `props`. For example, one can load additional information (say the last-online-time for `props.userId`) from a server and store it as `props.$lastOnline`.
+This example increments the number shown every time glasgow refreshes the UI. Of course, this kind-of breaks the one-way flow of information that makes reactive functional UI programming so easy to reason about. A rule of thumb is that you should only use local state for augmenting the information you received by means of regular `attrs`. For example, one can load additional information (say the last-online-time for `attrs.userId`) from a server and store it as `attrs.$lastOnline`.
 
 But how does glasgow distinguish cases where it should preserve state, from cases where a component generated in a refresh is actually ment to operate on different data?
 
 - The first step is that glasgow must be able to match the component and all its ancestor elements and components to their versions in the previous refresh. It does this by matching tags and components based on their position within the parent, or based on keys when available. (This matching is not only done for preserving state, but is also crucial in preventing having to redraw the entire interface on every refresh.) If you're loosing state when elements are moving around in your user interface, it may help to add some keys to the moving elements and components.
 
-- But even after matching a component with a component of the same type from the previous refresh, state will not always be preserved. This will only happen when all of the `props` (except those starting with `$` or `_`) are *exactly* identical. A property referring to a different object (or array) instance does *not* count as identical, even if it has the same content.
+- But even after matching a component with a component of the same type from the previous refresh, state will not always be preserved. This will only happen when all of the `attrs` (except those starting with `$` or `_`) are *exactly* identical. An attribute referring to a different object (or array) instance does *not* count as identical, even if it has the same content.
 
-When it is determined that state can be preserved safely, the old `props` object is moved into the new refresh's tree. This allows you to do things like this, without refreshes that may occur during the fetch causing problems:
+When it is determined that state can be preserved safely, the old `attrs` object is moved into the new refresh's tree. This allows you to do things like this, without refreshes that may occur during the fetch causing problems:
 
 ```jsx
-function Fetcher(props) {
-  if (!props.$fetching) {
-    props.$fetching = true;
-    glasgow.fetch(props.url)
+function Fetcher(attrs) {
+  if (!attrs.$fetching) {
+    attrs.$fetching = true;
+    glasgow.fetch(attrs.url)
       .then(resp => resp.text())
-      .then(text => props.$data = text);
+      .then(text => attrs.$data = text);
   }
-  return props.$data==null ? <em>Loading...</em> : props.$data;
+  return attrs.$data==null ? <em>Loading...</em> : attrs.$data;
 }
 ```
 
@@ -501,30 +572,30 @@ function Fetcher(props) {
 
 Bindings are a shortcut for setting an `oninput` event handler and a initial value on an HTML `input` (or `textarea`, or `select`) element. This creates a two-way binding between the application data and the UI view.
 
-To bind an input to the `$example` local state property, one would use:
+To bind an input to the `$example` local state attributes, one would use:
 
 ```jsx
 <input binding="$example" />
 ```
 
-In many cases, it would be desirable to directly alter higher level state. When this state is referred to by component properties, we can bind to it by using a path array:
+In many cases, it would be desirable to directly alter higher level state. When this state is referred to by component attributes, we can bind to it by using a path array:
 
 ```jsx
-function UserNameEditor(props) {
-  // This binds the input to props.users[props.userId]
-  return <input binding={["users",props.userId]} />
+function UserNameEditor(attrs) {
+  // This binds the input to attrs.users[attrs.userId]
+  return <input binding={["users",attrs.userId]} />
 }
 // And here's how you would use this component:
 let users = {1: "Frank"};
 let node = <UserNameEditor users={users}, userId={1} />;
 ```
 
-It is also possible to bind to state that is not (indirectly) referred to by the components properties. Just give you state array or objects as the first element in the binding array. Like this:
+It is also possible to bind to state that is not (indirectly) referred to by the components attributes. Just give you state array or objects as the first element in the binding array. Like this:
 
 ```jsx
 let list = [];
-function ListItem(props) {
-	return <input binding={[list, props.itemId]} />
+function ListItem(attrs) {
+	return <input binding={[list, attrs.itemId]} />
 }
 ```
 
@@ -534,7 +605,7 @@ function ListItem(props) {
 When the "svg" tag is used, the element and all of its children will be created within the SVG namespace. This allows you to embed SVGs without ceremony:
 
 ```jsx
-function MyIcon(props) {
+function MyIcon(attrs) {
 	return <div class="icon">
 		<svg onclick={alert} viewBox="0 0 16 16">
 			<path fill="currentColor" d="...." />
