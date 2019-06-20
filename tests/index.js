@@ -76,6 +76,7 @@ class Element extends ElementBase {
 	}
 	insertBefore(node, ref) {
 		if (node.parentNode) node.parentNode.removeChild(node);
+		else changeCount++;
 		node.parentNode = this;
 		if (ref) {
 			let idx = this.childNodes.indexOf(ref);
@@ -84,7 +85,6 @@ class Element extends ElementBase {
 		} else {
 			this.childNodes.push(node);
 		}
-		changeCount++;
 	}
 	removeChild(node) {
 		let idx = this.childNodes.indexOf(node);

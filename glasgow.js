@@ -264,7 +264,7 @@ function mount(domParent, rootFunc, rootProps = {}) {
 			domPath[domPathPos] = oldLast-end;
 			newChildren[newLast-end] = patch(newChildren[newLast-end], oldChildren[oldLast-end], domPath, context);
 		}
-		
+
 		if (end+start !== newChildren.length || newChildren.length !== oldChildren.length) {
 			// We need to do some extra work to sort out the middle part.
 
@@ -289,8 +289,7 @@ function mount(domParent, rootFunc, rootProps = {}) {
 				}
 			}
 
-
-			let newKeys = {};
+			let key, newKeys = {};
 			for(let i=start; i<newChildren.length-end; i++) {
 				let child = newChildren[i];
 				if (typeof child === 'object' && (key=child.attrs.key)) newKeys[key] = i;
@@ -305,7 +304,7 @@ function mount(domParent, rootFunc, rootProps = {}) {
 				let newChild = newChildren[i];
 				if (typeof newChild === 'object') {
 					let idx, newKey = newChild.attrs.key;
-					if (newKey && (idx = oldKeys[newKey]) && canPatch(newChild, oldChildren[idx])) {
+					if (newKey && (idx = oldKeys[newKey])!=null && canPatch(newChild, oldChildren[idx])) {
 						// Okay, we can recycle a keyed object
 						childDom = oldElements[idx-start];
 						oldElements[idx-start] = undefined;
