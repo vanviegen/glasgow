@@ -11,7 +11,7 @@ const glasgow = require("../glasgow-cjs.js");
 global.glasgow = glasgow;
 
 
-let newCount = 0;
+let newCount = 0, changeCount = 0;
 let failed = 0, passed = 0;
 
 
@@ -84,12 +84,14 @@ class Element extends ElementBase {
 		} else {
 			this.childNodes.push(node);
 		}
+		changeCount++;
 	}
 	removeChild(node) {
 		let idx = this.childNodes.indexOf(node);
 		if (idx<0) throw new Error("no such child");
 		this.childNodes.splice(idx, 1);
 		node.parentNode = null;
+		changeCount++;
 	}
 	replaceChild(newNode, oldNode) {
 		this.insertBefore(newNode, oldNode);
@@ -97,9 +99,11 @@ class Element extends ElementBase {
 	}
 	setAttribute(k, v) {
 		this.attrs[k] = v;
+		changeCount++;
 	}
 	removeAttribute(k) {
 		delete this.attrs[k];
+		changeCount++;
 	}
 	get firstChild() {
 		return this.childNodes[0];
@@ -110,12 +114,14 @@ class Element extends ElementBase {
 	set style(val) {
 		if (val !== '') throw new Error("non-empty style string cannot be emulated");
 		this._style = {};
+		changeCount++;
 	}
 	get style() {
 		return this._style;
 	}
 	set className(v) {
 		this.attrs.class = v;
+		changeCount++;
 	}
 	toString() {
 		let props = Object.assign({}, this);
@@ -146,6 +152,7 @@ class Element extends ElementBase {
 	addEventListener(name, func) {
 		this.events[name] = this.events[name] || [];
 		this.events[name].push(func);
+		changeCount++;
 	}
 	event(info) {
 		if (typeof info === 'string') info = {type: info};
@@ -211,6 +218,7 @@ async function runTest(name, steps) {
 			try {
 				glasgow.log(`STEP ${i}`);
 				newCount = 0;
+				changeCount = 0;
 				step = steps[i];
 				if (i) mount.refreshNow();
 				else mount = glasgow.mount(body, root, rootProps);
@@ -219,6 +227,9 @@ async function runTest(name, steps) {
 				}
 				if (step.maxNew!=null) {
 					if (newCount > step.maxNew) throw new Error(`${newCount} new elements created, only ${step.maxNew} allowed`);
+				}
+				if (step.maxChange!=null) {
+					if (changeCount > step.maxChange) throw new Error(`${changeCount} changed elements, only ${step.maxChange} allowed`);
 				}
 				if (step.after) step.after(body, rootProps);
 				await runTimeouts();
