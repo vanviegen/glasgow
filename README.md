@@ -46,7 +46,7 @@ An easy-to-use JavaScript library for building user interfaces in a *functional 
 // Load the glasgow library from a CDN. As we will be using the default 
 // function continuously in places where we want to avoid clutter, I'll
 // give it a really short name: G.
-import G from 'https://cdn.jsdelivr.net/npm/glasgow@0.6.0/glasgow.js';
+import G from 'https://cdn.jsdelivr.net/npm/glasgow@0.6.1/glasgow.js';
 
 
 // I'm using global state here for the list. We could have also chosen to pass

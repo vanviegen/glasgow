@@ -180,7 +180,8 @@ function mount(domParent, rootFunc, rootProps = {}) {
 		return typeof newNode === typeof oldNode && (
 			typeof newNode === 'string' || (
 				newNode.tag === oldNode.tag &&
-				newNode.attrs.key === oldNode.attrs.key
+				newNode.attrs.key === oldNode.attrs.key &&
+				newNode.attrs.oncreate === oldNode.attrs.oncreate
 		 	)
 		 );
 	}
