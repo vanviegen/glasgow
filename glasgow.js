@@ -451,7 +451,7 @@ function mount(domParent, rootFunc, rootProps = {}) {
 		treeRoot = patch(treeRoot, oldTree, [domRoot], {});
 
 		for(let event in newDelegatedEvents) {
-			domRoot.addEventListener(event, delegator);
+			domRoot.addEventListener(event, delegator, true);
 			domWrites++;
 			if (debug>=3) glasgow.log('glasgow update add event listener', event);
 		}

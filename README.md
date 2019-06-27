@@ -46,7 +46,7 @@ An easy-to-use JavaScript library for building user interfaces in a *functional 
 // Load the glasgow library from a CDN. As we will be using the default 
 // function continuously in places where we want to avoid clutter, I'll
 // give it a really short name: G.
-import G from 'https://cdn.jsdelivr.net/npm/glasgow@0.6.1/glasgow.js';
+import G from 'https://cdn.jsdelivr.net/npm/glasgow@0.6.2/glasgow.js';
 
 
 // I'm using global state here for the list. We could have also chosen to pass
@@ -617,6 +617,7 @@ Breaking changes in major revisions.
 v0.6:
 - The `on` prefix is now mandatory for event handlers. So you must now use `onclick` instead of just `click`.
 - When passing a boolean as the value for a DOM node attribute, it will now be treated as a property. This does the right thing for `autoplay`, `muted`, `loop`, etc. Setting an attribute to a boolean value doesn't ever make sense, does it?
+- Use capturing for addEventListener, allowing us to support propagation of non-bubbling events. This may break things if you're setting up your own event handlers on Glasgow-managed elements.
 
 v0.5:
 - Virtual DOM node attributes are now cleanly separated from internal Glasgow properties (`_t`, `_a`, etc). This *should* not break anything, and possibly fix some thingsr, unless you're relying on exposed internals.
