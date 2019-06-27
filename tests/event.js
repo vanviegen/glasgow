@@ -2,12 +2,12 @@ exports.click = [{
 	root: function(props) {
 		props.v = props.v || 0;
 		return glasgow('h1', {
-			click: function() {
+			onclick: function() {
 				props.v += 100;
 			}
 		},
 			glasgow('h2', {
-				click: function() {
+				onclick: function() {
 					props.v++;
 				}
 			},
@@ -52,7 +52,7 @@ exports.fadeOut = [{
 	root: function(props) {
 		return glasgow('h1', {},
 			glasgow('h2', {
-				remove: glasgow.fadeOut
+				onremove: glasgow.fadeOut
 			})
 		);
 	},

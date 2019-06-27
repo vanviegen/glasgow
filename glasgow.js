@@ -35,7 +35,7 @@ export default function glasgow(tag, attrs, ...rest) {
 		attrs = {};
 	}
 	for(let r of rest) {
-		addChild(children, r);;
+		addChild(children, r);
 	}
 
 	if (typeof tag === 'string') {
@@ -170,7 +170,7 @@ function mount(domParent, rootFunc, rootProps = {}) {
 		let el = newNode.svg ? document.createElementNS("http://www.w3.org/2000/svg", tag) : document.createElement(tag);
 		domWrites++;
 		if (debug>=3) glasgow.log('glasgow update create', tag);
-		let func = newNode.attrs.oncreate || newNode.attrs.create;
+		let func = newNode.attrs.oncreate;
 		if (typeof func==='function') afterRefresh(func, el, [{type:'create', parentStable}, context, newNode]);
 		patch(newNode, EMPTY_NODE, [el], context);
 		return el;
@@ -380,7 +380,8 @@ function mount(domParent, rootFunc, rootProps = {}) {
 			
 			let newVal = newAttrs[attr];
 			if (typeof newVal === 'function') {
-				if (attr.substr(0,2)==='on') attr = attr.substr(2);
+				if (debug && attr.substr(0,2)!=='on') throw new Error('function attributes values are only allowed for "on..." events, not for "'+attr+'"');
+				attr = attr.substr(2);
 				if (!allDelegatedEvents[attr]) {
 					if (debug) glasgow.log('glasgow delegating event type', attr);
 					newDelegatedEvents[attr] = allDelegatedEvents[attr] = true;
@@ -396,7 +397,7 @@ function mount(domParent, rootFunc, rootProps = {}) {
 			}
 
 			dom = dom || resolveDomPath(domPath);
-			if (attr === 'checked' || attr === 'value' || attr === 'className' || attr === 'selectedIndex' || attr === 'disabled') {
+			if (attr === 'value' || attr === 'className' || attr === 'selectedIndex' || newVal===true || newVal===false) {
 				dom[attr] = newVal;
 			} else if (attr === 'style' && typeof newVal === 'object') {
 				if (oldVal) dom.style = '';
@@ -423,7 +424,7 @@ function mount(domParent, rootFunc, rootProps = {}) {
 			if (debug>=3) glasgow.log('glasgow update unset attribute', key);
 		}
 
-		let func = newNode.attrs.onrefresh || newNode.attrs.refresh;
+		let func = newNode.attrs.onrefresh;
 		if (typeof func==='function') afterRefresh(func, resolveDomPath(domPath), [{type:"refresh"}, context, newNode]);
 		
 		return newNode;
@@ -481,7 +482,7 @@ function mount(domParent, rootFunc, rootProps = {}) {
 		for(let i = 0; i < children.length; i++) {
 			destroy(children[i], attrs);
 		}
-		let func = node.attrs.onremove || node.attrs.remove;
+		let func = node.attrs.onremove;
 		if (typeof func==='function') return func.call(element, {type: "remove", parentStable: !!element}, attrs, node);
 	}
 	
@@ -542,7 +543,7 @@ function mount(domParent, rootFunc, rootProps = {}) {
 		let doRefresh = false;
 		for (let i = treeArray.length-2; i >= 0; i-=2) {
 			let node = treeArray[i];
-			let func = node.attrs[ontype] || node.attrs[type];
+			let func = node.attrs[ontype];
 			if (typeof func==='function') {
 				doRefresh = true;
 				let attrs = treeArray[i+1];
