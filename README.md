@@ -1,7 +1,7 @@
 Glasgow
 -------
 
-An easy-to-use JavaScript library for building user interfaces in a *functional reactive* way, using JSX.
+An easy-to-use JavaScript library for building user interfaces in a *functional reactive* way, optionally using JSX.
 
 * [Why glasgow](#why-glasgow)
 * [Example usage](#example-usage)
@@ -12,6 +12,8 @@ An easy-to-use JavaScript library for building user interfaces in a *functional 
 
 ## Why Glasgow?
 
+Glasgow is primarily meant for educational use. It has the same main features as React (functional reactive DOM management, components and optional JSX), but is simpler to use.
+
 #### Reasons to use Glasgow:
 
 - *Easy* to learn -- there are not many concepts to understand.
@@ -19,23 +21,25 @@ An easy-to-use JavaScript library for building user interfaces in a *functional 
 - *Easy* state mangement -- you can store state anywhere you like. There's no `setState`. The UI will refresh automatically after handling events, or when you tell it to. Component-local state is supported as well, and is just as easy.
 
 - *Easy* event handling.
-  - Function binding is usually not required, as handlers will be provided with relevant context by default.
-  - Event delegation, meaning performance won't suffer much if you *do* need to bind or create new function instances on each refresh.
-  - Two-way bindings, when you want it.
+  - Function binding is usually not required, as handlers will automatically be provided with [context info](#event-handlers).
+  - [Event delegation](#event-delegation), meaning performance won't suffer much if you *do* need to bind or create new function instances on every refresh.
+  - Two-way [binding](#bindings), when you want it.
 
-- *Tiny*. About 4kb minified and gzipped. Built from a single source file that is small enough to read. No dependencies.
+- *Easy* [components](#components) -- they're just functions. [CSS styling](#component-css) can be attached to a component, allowing you to create *single file components* like Vue.js.
+
+- *Easy* animations(#glasgowfadeinattrs-element-parentstable) for element creation and destruction.
+
+- *Tiny*. About 4kb minified and gzipped. Built from a [single source file](glasgow.js) that is small enough to read. No dependencies.
 
 - *Fast* enough. Rendering seems [about as fast as React](https://www.vanviegen.net/glasgow/benchmark.html). Startup is a lot speedier.
 
 #### Reasons not to use Glasgow:
 
-- It's experimental. You probably shouldn't build your business around this.
+- It's not very mature. You may experience more than your fair share of bleeding edges.
 
-- Only the basics. No routers, no server-side rendering, no ready-to-use components.
+- Only the basics are provided. No routers, no server-side rendering, no ready-to-use components.
 
-- No community. Probably not a lot of support from me either.
-
-- If you want to use JSX, you need to transpile your source code.
+- No community.
 
 
 ## Example usage
@@ -45,8 +49,8 @@ An easy-to-use JavaScript library for building user interfaces in a *functional 
 
 // Load the glasgow library from a CDN. As we will be using the default 
 // function continuously in places where we want to avoid clutter, I'll
-// give it a really short name: G.
-import G from 'https://cdn.jsdelivr.net/npm/glasgow@0.6.2/glasgow.js';
+// give it a really short name: $.
+import $ from 'https://cdn.jsdelivr.net/npm/glasgow@0.7.0/glasgow.js';
 
 
 // I'm using global state here for the list. We could have also chosen to pass
@@ -59,11 +63,21 @@ let list = [];
 // A component gets a (JSX) attributes object and an array of children (which
 // we're ignoring here).
 function Item(attrs, children) {
-  return G('li',
-    G('.text', attrs.key),
-    G('.delete', {click: deleteItem}, 'x')
+  return $('li',
+    $('.text', attrs.key),
+    $('.delete', {click: deleteItem}, 'x')
   );
 }
+
+// Add some styling to the Item component
+Item.css = {
+	backgroundColor: '#eee',
+	borderRadius: '1em',
+	// We can use selectors here, which will match within the component
+	'> .delete:hover': {
+		color: 'red'
+	}
+};
 
 // This the onclick handler for the delete-button. Notice how we didn't need to
 // bind the function, as the component's `attrs` are provided by Glasgow.
@@ -80,13 +94,13 @@ function ToDo(attrs, children) {
   // into a list of virtual DOM elements.
   // `key` is kind of a special attribute, as it's also used to match-up old
   // elements with new elements when doing a refresh. (See: Reconciliation.)
-  return G('main',
-    G('h1', 'Mandatory ToDo example'),
-    G('ul',
-      list.map(key => G(Item, {key}))
+  return $('main',
+    $('h1', 'Mandatory ToDo example'),
+    $('ul',
+      list.map(key => $(Item, {key}))
     ),
-    G('input', {type: 'text', placeholder: 'New item', binding: '$newItem'}),
-    G('input', {type: 'button', value: 'Add', click: addItem})
+    $('input', {type: 'text', placeholder: 'New item', binding: '$newItem'}),
+    $('input', {type: 'button', value: 'Add', click: addItem})
   )
   // We're binding the text input to `$newItem`, meaning it is synced with
   // `attrs.$newItem`. (See: Bindings.)
@@ -131,6 +145,16 @@ function Item(attrs, children) {
     <div class="delete" onclick={deleteItem}>x</div>
   </li>;
 }
+
+// Add some styling to the Item component
+Item.css = {
+	backgroundColor: '#eee',
+	borderRadius: '1em',
+	// We can use selectors here, which will match within the component
+	'> .delete:hover': {
+		color: 'red'
+	}
+};
 
 // This the onclick handler for the delete-button. Notice how we didn't need to
 // bind the function, as the component's `attrs` are provided by Glasgow.
@@ -209,6 +233,7 @@ Apart from installing and importing this library, you'll need to setup *babel* t
  * [Virtual DOM nodes](#virtual-dom-nodes)
  * [Components](#components)
     * [Component state](#component-state)
+    * [Component CSS](#component-css)
  * [Bindings](#bindings)
  * [Inline SVGs](#inline-svgs)
 
@@ -561,6 +586,42 @@ function Fetcher(attrs) {
 }
 ```
 
+#### Component CSS
+
+In order to keep everything about a component together in one file (and to prevent having to load separate CSS files for each component), a stylesheet for a component can be given as a JavaScript object. Keys of the object will be used as CSS style property names, for which the value is set on the root element(s) of the component. In case the value is itself an object, the key will be interpreted as a selector. The selector will be prefixed by a selector that matches the root element(s) of the component.
+
+```JSX
+
+// Create a simple component
+const MyComponent = attrs => glasgow('div',
+	glasgow('span', 'a'),
+	glasgow('span', 'b')
+);
+
+// Attach a stylesheet
+MyComponent.css = {
+	// Set the background-color of the root element (the div)
+	backgroundColor: 'blue',
+	// Match the first child of the root element
+	'> :first-child': {
+		color: 'red'
+	}
+};
+```
+
+This results in something like the following CSS being added to the DOM:
+
+```CSS
+.GaGo1 {
+	background-color: blue;
+}
+
+.GaGo1 > :first-child {
+	color: red;
+}
+```
+
+Where `GaGo1` is a generated unique class name that is added to the root elemenent(s) of all component instances.
 
 
 ### Bindings
@@ -612,7 +673,11 @@ function MyIcon(attrs) {
 
 ## Changelog
 
-Breaking changes in major revisions.
+Breaking and important changes in major revisions.
+
+v0.7:
+- It's now possible to attach stylesheets to components. See [Component CSS](#component-css).
+- The attributes object and the children can now be in any order as arguments to `glasgow(tag, ...attributesObjectAndChildren)`.
 
 v0.6:
 - The `on` prefix is now mandatory for event handlers. So you must now use `onclick` instead of just `click`.

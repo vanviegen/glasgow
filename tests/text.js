@@ -70,3 +70,18 @@ exports.componentRootNumeric = [{
 	maxNew: 0
 }];
 
+
+exports.argumentOrder = [{
+	root: props => glasgow('section.card@key',
+		'Click here:',
+		123,
+		glasgow('button', { // attrs first
+			id: 'b',
+			className: 'c'
+		}, 'Click me'),
+		// attrs last:
+		{id: 'myId'}
+	),
+	result: `section{@class="card" @id="myId" "Click here:" "123" button{@class="c" @id="b" "Click me"}}`
+}];
+

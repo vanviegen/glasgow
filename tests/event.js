@@ -1,19 +1,21 @@
 exports.click = [{
-	root: function(props) {
-		props.v = props.v || 0;
-		return glasgow('h1', {
-			onclick: function() {
-				props.v += 100;
-			}
-		},
-			glasgow('h2', {
+	root: function(attrs) {
+		attrs.$v = attrs.$v || 0;
+		return glasgow('h1',
+			{
 				onclick: function() {
-					props.v++;
+					attrs.$v += 100;
 				}
 			},
+			glasgow('h2',
+				{
+					onclick: function() {
+						attrs.$v++;
+					}
+				},
 				glasgow('h3', {id: 'x'})
 			),
-			''+props.v
+			attrs.$v
 		);
 	},
 
@@ -32,24 +34,26 @@ exports.click = [{
 }];
 
 exports.bind = [{
-	root: function(props) {
-		props.$inp = props.$inp || "a";
-		return glasgow('input', {binding:'$inp',id:'x'});
+	root: function(attrs) {
+		attrs.$inp = attrs.$inp || "a";
+		return [
+			glasgow('input', {binding:'$inp',id:'x'}),
+			glasgow('div', attrs.$inp)
+		];
 	},
 
-	result: `input{@id="x" value="a"}`,
+	result: `div{input{@id="x" value="a"} div{"a"}}`,
 
-	after: function(body, props) {
+	after: function(body) {
 		let x = body.getElementById('x');
 		x.value = "b";
 		x.event('input');
-		body.assertChildren(`input{@id="x" value="b"}`);
-		if (props.$inp !== "b") throw new Error("binding not changing props");
+		body.assertChildren(`div{input{@id="x" value="b"} div{"b"}}`);
 	}
 }];
 
 exports.fadeOut = [{
-	root: function(props) {
+	root: function(attrs) {
 		return glasgow('h1', {},
 			glasgow('h2', {
 				onremove: glasgow.fadeOut
@@ -58,7 +62,7 @@ exports.fadeOut = [{
 	},
 	result: `h1{h2{}}`,
 }, {
-	root: function(props) {
+	root: function(attrs) {
 		return glasgow('h1');
 	},
 	after: function(body) {

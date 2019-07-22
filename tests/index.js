@@ -1,25 +1,26 @@
+let insertedCss = '';
+
 global.document = {
 	createElement: tag => new Element(tag),
-	createTextNode: text => new TextNode(text)
+	createTextNode: text => new TextNode(text),
+	head: {
+		appendChild: function(el) {
+			if (el.tag!=='style') {
+				throw new Error("only <style> inserts in head can be emulated");
+			}
+			insertedCss += el.innerText;
+		}
+	}
 };
 global.window = {};
 
 
 const fs = require('fs');
-const glasgow = require("../glasgow-cjs.js");
-
-global.glasgow = glasgow;
 
 
 let newCount = 0, changeCount = 0;
 let failed = 0, passed = 0;
 
-
-let logs = [];
-glasgow.log = function(...args) {
-	logs.push(args);
-	if (verbose>1) console.log(" ", ...args);
-}
 
 
 let timeouts = [];
@@ -198,12 +199,30 @@ function objEmpty(obj) {
 
 
 
-async function runTest(name, steps) {
-	if (!(steps instanceof Array)) steps = [steps];
+async function runTest(file, testname) {
+	let name = file+':'+testname;
+
 	for(let setDebug of [9,0]) {
+		if (verbose>0) console.log(`${name} [setDebug(${setDebug})]`);
+
+		// Start with a clean copy of Glasgow for every test
+		delete require.cache[require.resolve('../glasgow-cjs.js')]
+		const glasgow = require("../glasgow-cjs.js");
+		let logs = [];
+		glasgow.log = function(...args) {
+			logs.push(args);
+			if (verbose>1) console.log(" ", ...args);
+		}
+
+		global.glasgow = glasgow;
 		glasgow.setDebug(setDebug);
 
-		if (verbose>0) console.log(`${name} [setDebug(${setDebug})]`);
+		// Start with a clean copy of the test module for every test
+		delete require.cache[require.resolve('./'+file)];
+		let module = require('./'+file);
+		let steps = module[testname];
+		if (!(steps instanceof Array)) steps = [steps];
+
 		logs = [];
 		let body = new Element('body');
 		timeouts = [];
@@ -219,6 +238,7 @@ async function runTest(name, steps) {
 				glasgow.log(`STEP ${i}`);
 				newCount = 0;
 				changeCount = 0;
+				insertedCss = "";
 				step = steps[i];
 				if (i) mount.refreshNow();
 				else mount = glasgow.mount(body, root, rootProps);
@@ -231,7 +251,11 @@ async function runTest(name, steps) {
 				if (step.maxChange!=null) {
 					if (changeCount > step.maxChange) throw new Error(`${changeCount} changed elements, only ${step.maxChange} allowed`);
 				}
-				if (step.after) step.after(body, rootProps);
+				if (step.after) step.after(body);
+				let expectCss = step.css || '';
+				if (expectCss !== insertedCss) {
+					throw new Error(`Expecting "${expectCss}" to be inserted, but got "${insertedCss}"`);
+				}
 				await runTimeouts();
 			} catch(e) {
 				console.log(`FAILED TEST '${name}' [setDebug(${setDebug})] at step ${i}\n\t${(e.stack||e).replace(/\n {0,4}/g,"\n\t\t")}\n\tLogs:\n\t\t${logs.map(e => e.join(" ")).join("\n\t\t")}`);
@@ -280,12 +304,12 @@ async function runTests(tests) {
 	if (tests.length) {
 		for(let test of tests) {
 			let [file,name] = test.split(':');
-			let module = require(__dirname+'/'+file+'.js');
-			if (await name) {
-				await runTest(file+':'+name, module[name]);
+			if (name) {
+				await runTest(file, name);
 			} else {
+				let module = require('./'+file);
 				for(let name in module) {
-					await runTest(file+':'+name, module[name]);
+					await runTest(file, name);
 				}
 			}
 
@@ -294,9 +318,10 @@ async function runTests(tests) {
 		for(let file of fs.readdirSync(__dirname)) {
 			let m = file.match(/^(.+)\.js$/);
 			if (m && m[1]!=='index') {
-				let module = require(__dirname+'/'+file);
+				file = m[1];
+				let module = require('./'+file);
 				for(let name in module) {
-					await runTest(m[1]+':'+name, module[name]);
+					await runTest(file, name);
 				}
 			}
 		}

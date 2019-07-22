@@ -1,7 +1,7 @@
 {
   "name": "glasgow",
-  "version": "0.6.2",
-  "description": "An easy-to-use JavaScript library for building user interfaces in a functional reactive way, using JSX.",
+  "version": "0.7.0",
+  "description": "An easy-to-use JavaScript library for building user interfaces in a functional reactive way, optionally using JSX.",
   "author": "Frank van Viegen",
   "license": "MIT",
   "repository": "https://github.com/vanviegen/glasgow",

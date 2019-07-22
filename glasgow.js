@@ -14,6 +14,8 @@ let instances = [];
 
 let fetch = window.fetch ? window.fetch.bind(window) : null;
 
+let cssClassCounter = 0; // used for generating unique class names for component css
+
 let debug = 1;
 	// 0. production build
 	// 1. extra checking, a lot slower!
@@ -26,17 +28,21 @@ function VNode(tag, attrs, children, key) {
 	this.children = children;
 }
 
-export default function glasgow(tag, attrs, ...rest) {
-	let children = [];
+const dotRegEx = /\./g;
 
-	if (attrs==null || typeof attrs!=='object' || attrs instanceof Array || attrs instanceof VNode) {
-		// not actually attrs, just a child
-		addChild(children, attrs);
-		attrs = {};
+export default function glasgow(tag, ...args) {
+	let children = [];
+	let attrs;
+
+	for(let arg of args) {
+		if (typeof arg==='object' && arg!==null && arg.constructor === Object) {
+			if (attrs) throw new Error("more than one attributes objects");
+			attrs = arg;
+		} else {
+			addChild(children, arg);
+		}
 	}
-	for(let r of rest) {
-		addChild(children, r);
-	}
+	attrs = attrs || {};
 
 	if (typeof tag === 'string') {
 		let pos = tag.indexOf('@');
@@ -46,7 +52,7 @@ export default function glasgow(tag, attrs, ...rest) {
 		}
 		pos = tag.indexOf('.');
 		if (pos>=0) {
-			attrs.className = tag.substr(pos+1).replace(/\./g, ' ');
+			attrs.className = tag.substr(pos+1).replace(dotRegEx, ' ') || undefined;
 			tag = tag.substr(0,pos);
 		}
 		tag = tag||'div';
@@ -61,7 +67,10 @@ function addChild(children, child) {
 	if (child == null) return; // null or undefined
 	let type = typeof child;
 	if (type === 'object') {
-		if (child instanceof VNode) return children.push(child);
+		if (child instanceof VNode) {
+			children.push(child);
+			return;
+		}
 		if (child instanceof Array) {
 			for(let c of child) {
 				addChild(children, c);
@@ -122,6 +131,25 @@ function refreshify(func) {
 	}
 }
 
+const upperCaseRegEx = /[A-Z]/g;
+const upperToSnake = (letter) => '-' + letter.toLowerCase();
+
+function objToCss(className, obj) {
+	let res = className + "{";
+	let sub = "";
+	for(let k in obj) {
+		let v = obj[k];
+		if (v == null) continue;
+		if (typeof v === 'object') {
+			sub += objToCss(className+" "+k, v);
+		} else {
+			k = k.replace(upperCaseRegEx, upperToSnake);
+			res += k+":"+v+";";
+		}
+	}
+	return res+"}" + sub;
+}
+
 
 
 function mount(domParent, rootFunc, rootProps = {}) {
@@ -133,6 +161,7 @@ function mount(domParent, rootFunc, rootProps = {}) {
 	let domReads, domWrites; // DOM operations counters
 	let newDelegatedEvents = {}, allDelegatedEvents = {}; // eg {'onclick' => true}
 	let afterRefreshArray = [];
+	let insertCss = '';
 
 	let scheduled = 0;
 	let instance = {refresh, refreshNow, unmount, refreshify, getTree};
@@ -145,11 +174,25 @@ function mount(domParent, rootFunc, rootProps = {}) {
 	return instance;
 
 	function materialize(newNode) {
-		let res = newNode.tag(newNode.attrs, newNode.children);
+		let tag = newNode.tag;
+		let res = tag(newNode.attrs, newNode.children);
 		delete newNode.children;
 
 		let arr = [];
 		addChild(arr, res);
+
+		if (tag.css) {
+			if (!tag.cssClass) {
+				tag.cssClass = "GlGw" + ++cssClassCounter;
+				insertCss += objToCss('.'+tag.cssClass, tag.css);
+			}
+			for(let el of arr) {
+				if (typeof el === 'object') {
+					el.attrs.className = el.attrs.className==null ? tag.cssClass : el.attrs.className+' '+tag.cssClass;
+				}
+			}
+		}
+
 		return arr.length===1 ? arr[0] : {tag: 'div', attrs: {}, children: arr};
 	}
 
@@ -456,6 +499,15 @@ function mount(domParent, rootFunc, rootProps = {}) {
 			if (debug>=3) glasgow.log('glasgow update add event listener', event);
 		}
 		newDelegatedEvents = {};
+
+		if (insertCss!=='') {
+			const styleSheet = document.createElement("style")
+			styleSheet.innerText = insertCss;
+			document.head.appendChild(styleSheet)
+			domWrites+=3;
+			if (debug>=3) glasgow.log('glasgow inserted css', insertCss);
+			insertCss = '';
+		}
 
 		glasgow.log('glasgow refreshed in', new Date() - startTime, 'ms, using', domWrites, 'DOM updates and', domReads, 'DOM reads'+(debug ? " [use glasgow.setDebug(0) if you're interested in speed]" : ""));
 		
