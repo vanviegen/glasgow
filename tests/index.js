@@ -240,8 +240,13 @@ async function runTest(file, testname) {
 				changeCount = 0;
 				insertedCss = "";
 				step = steps[i];
-				if (i) mount.refreshNow();
-				else mount = glasgow.mount(body, root, rootProps);
+				if (step.unmount) {
+					mount.unmount();
+					mount = null;
+				} else {
+					if (mount) mount.refreshNow();
+					else mount = glasgow.mount(body, root, rootProps);
+				}
 				if (step.result!=null) {
 					body.assertChildren(step.result);
 				}
@@ -267,8 +272,8 @@ async function runTest(file, testname) {
 			}
 		}
 
+		if (mount) mount.unmount();
 		passed++;
-		mount.unmount();
 	}
 }
 

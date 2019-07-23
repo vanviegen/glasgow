@@ -63,20 +63,26 @@ let list = [];
 // A component gets a (JSX) attributes object and an array of children (which
 // we're ignoring here).
 function Item(attrs, children) {
-  return $('li',
-    $('.text', attrs.key),
-    $('.delete', {click: deleteItem}, 'x')
+  return $('li', {oncreate: $.fadeIn, onremove: $.fadeOut},
+    $('label', attrs.key),
+    $('.delete', {onclick: deleteItem}, '✖')
   );
 }
 
 // Add some styling to the Item component
 Item.css = {
-	backgroundColor: '#eee',
-	borderRadius: '1em',
+	backgroundColor: '#f8f8f8',
+	padding: '0.5em',
+	marginBottom: '1em',
+	borderRadius: '0.25em',
+	display: 'flex',
 	// We can use selectors here, which will match within the component
+	label: {
+		flex: 1,
+	},
 	'> .delete:hover': {
-		color: 'red'
-	}
+		color: 'red',
+	},
 };
 
 // This the onclick handler for the delete-button. Notice how we didn't need to
@@ -92,30 +98,29 @@ function deleteItem(event, attrs) {
 function ToDo(attrs, children) {
   // The JavaScript `map` function is used to translate the list of ToDo-items 
   // into a list of virtual DOM elements.
-  // `key` is kind of a special attribute, as it's also used to match-up old
-  // elements with new elements when doing a refresh. (See: Reconciliation.)
+  // `key` is a special attribute, as it's used to match-up old elements with
+  // new elements when doing a refresh. (See: Reconciliation.)
   return $('main',
     $('h1', 'Mandatory ToDo example'),
-    $('ul',
-      list.map(key => $(Item, {key}))
-    ),
-    $('input', {type: 'text', placeholder: 'New item', binding: '$newItem'}),
-    $('input', {type: 'button', value: 'Add', click: addItem})
+    list.map(key => $(Item, {key})),
+    $('input', {type: 'text', placeholder: 'New item', binding: 'state.newItem'}),
+    $('input', {type: 'button', value: 'Add', onclick: addItem})
   )
-  // We're binding the text input to `$newItem`, meaning it is synced with
-  // `attrs.$newItem`. (See: Bindings.)
-  // The $-sign indicates that this is a state-variable, which means that its
-  // value is kept when redrawing. (See: Component state.)
+  // We're binding the text input to `state.newItem`, meaning it is synced with
+  // `attrs.state.newItem`. (See: Bindings.)
+  // `state` is a special attribute. It contains the component local state,
+  // meaning it is preserved when the UI refreshes. (See: Component state.)
 }
 
 function addItem(event, attrs) {
-  list.push(attrs.$newItem);
-  attrs.$newItem = "";
+  list.push(attrs.state.newItem);
+  attrs.state.newItem = "";
 }
 
 
 // And this is where we add the ToDo component to the DOM. Presto!
-glasgow.mount(document.body, ToDo);
+$.mount(document.body, ToDo);
+
 ```
 
 
@@ -141,19 +146,25 @@ let list = [];
 // we're ignoring here).
 function Item(attrs, children) {
   return <li>
-    <div class="text">{attrs.key}</div>
-    <div class="delete" onclick={deleteItem}>x</div>
+    <label>{attrs.key}</label>
+    <div class="delete" onclick={deleteItem}>✖</div>
   </li>;
 }
 
 // Add some styling to the Item component
 Item.css = {
-	backgroundColor: '#eee',
-	borderRadius: '1em',
+	backgroundColor: '#f8f8f8',
+	padding: '0.5em',
+	marginBottom: '1em',
+	borderRadius: '0.25em',
+	display: 'flex',
 	// We can use selectors here, which will match within the component
+	label: {
+		flex: 1,
+	},
 	'> .delete:hover': {
-		color: 'red'
-	}
+		color: 'red',
+	},
 };
 
 // This the onclick handler for the delete-button. Notice how we didn't need to
@@ -176,18 +187,18 @@ function ToDo(attrs, children) {
     <ul>
       {list.map(item => <Item key={item} />)}
     </ul>
-    <input type="text" placeholder="New item" binding="$newItem" />
+    <input type="text" placeholder="New item" binding="state.newItem" />
     <input type="button" value="Add" onclick={addItem} />
   </main>;
-  // We're binding the text input to `$newItem`, meaning it is synced with
-  // `attrs.$newItem`. (See: Bindings.)
-  // The $-sign indicates that this is a state-variable, which means that its
-  // value is kept when redrawing. (See: Component state.)
+  // We're binding the text input to `state.newItem`, meaning it is synced with
+  // `attrs.state.newItem`. (See: Bindings.)
+  // `state` is a special attribute. It contains the component local state,
+  // meaning it is preserved when the UI refreshes. (See: Component state.)
 }
 
 function addItem(event, attrs) {
-  list.push(attrs.$newItem);
-  attrs.$newItem = "";
+  list.push(attrs.state.newItem);
+  attrs.state.newItem = "";
 }
 
 
@@ -233,6 +244,7 @@ Apart from installing and importing this library, you'll need to setup *babel* t
  * [Virtual DOM nodes](#virtual-dom-nodes)
  * [Components](#components)
     * [Component state](#component-state)
+    * [Component events](#component-events)
     * [Component CSS](#component-css)
  * [Bindings](#bindings)
  * [Inline SVGs](#inline-svgs)
@@ -452,7 +464,7 @@ Note that keys are only matched (and thus only need to be unique) *within* a par
 Events can be registered on any HTML virtual DOM node (meaning: *not* on components) using attributes with functions as values. For example:
 
 ```jsx
-<div click={handler}>Click me</div>
+<div onclick={handler}>Click me</div>
 ```
 
 Event handlers receive arguments like this:
@@ -560,30 +572,46 @@ State variables can be (but do not need to) specified as attributes by the calle
 
 ```jsx
 function RefreshCounter(attrs) {
-  if (!attrs.$count) attrs.$count = 1;
-  return (attrs.$count++).toString();
+  if (!attrs.state) attrs.state = 1;
+  return (attrs.state++).toString();
 }
 ```
-This example increments the number shown every time glasgow refreshes the UI. Of course, this kind-of breaks the one-way flow of information that makes reactive functional UI programming so easy to reason about. A rule of thumb is that you should only use local state for augmenting the information you received by means of regular `attrs`. For example, one can load additional information (say the last-online-time for `attrs.userId`) from a server and store it as `attrs.$lastOnline`.
+This example increments the number shown every time glasgow refreshes the UI. Of course, this kind-of breaks the one-way flow of information that makes reactive functional UI programming so easy to reason about. A rule of thumb is that you should only use local state for augmenting the information you received by means of regular `attrs`. For example, one can load additional information (say the last-online-time for `attrs.userId`) from a server and store it as `attrs.state.lastOnline`.
 
 But how does glasgow distinguish cases where it should preserve state, from cases where a component generated in a refresh is actually ment to operate on different data?
 
 - The first step is that glasgow must be able to match the component and all its ancestor elements and components to their versions in the previous refresh. It does this by matching tags and components based on their position within the parent, or based on keys when available. (This matching is not only done for preserving state, but is also crucial in preventing having to redraw the entire interface on every refresh.) If you're loosing state when elements are moving around in your user interface, it may help to add some keys to the moving elements and components.
 
-- But even after matching a component with a component of the same type from the previous refresh, state will not always be preserved. This will only happen when all of the `attrs` (except those starting with `$` or `_`) are *exactly* identical. An attribute referring to a different object (or array) instance does *not* count as identical, even if it has the same content.
+- But even after matching a component with a component of the same type from the previous refresh, state will not always be preserved. This will only happen when all of the `attrs` (except `state` itself) are *identical*. An attribute referring to a different object (or array) instance is *not* considered identical, even if it has the same content.
 
-When it is determined that state can be preserved safely, the old `attrs` object is moved into the new refresh's tree. This allows you to do things like this, without refreshes that may occur during the fetch causing problems:
+When it is determined that state can be preserved safely, the `state` attribute is copied to the new refresh's tree. This allows you to do things like this, without refreshes that may occur during the fetch causing problems:
 
 ```jsx
 function Fetcher(attrs) {
-  if (!attrs.$fetching) {
-    attrs.$fetching = true;
+  if (!attrs.state) {
+    attrs.state = {};
     glasgow.fetch(attrs.url)
       .then(resp => resp.text())
-      .then(text => attrs.$data = text);
+      .then(text => attrs.state.data = text);
   }
-  return attrs.$data==null ? <em>Loading...</em> : attrs.$data;
+  return attrs.state.data==null ? <em>Loading...</em> : attrs.state.data;
 }
+```
+
+#### Component events
+
+There are cases where you'll want to initialize a component instance when it is first created -- some logic you *don't* want to run on every refresh. Fetching data from the server, for instance. For that a `start` function can be defined *on the component function*. An example
+
+```JSX
+const MyComponent = attrs => {
+	if (attrs.state) return "Loading...";
+	return "Fetched data: "+JSON.stringify(attrs.state);
+};
+MyComponent.start = async attrs => {
+	let rsp = await glasgow.fetch("https://api.github.com/users/vanviegen");
+	rsp.state = await response.json();
+	// glasgow.fetch will automatically trigger a refresh when this is done
+};
 ```
 
 #### Component CSS
@@ -628,10 +656,16 @@ Where `GaGo1` is a generated unique class name that is added to the root elemene
 
 Bindings are a shortcut for setting an `oninput` event handler and a initial value on an HTML `input` (or `textarea`, or `select`) element. This creates a two-way binding between the application data and the UI view.
 
-To bind an input to the `$example` local state attributes, one would use:
+To bind an input to the `state.example` local state attributes, one would use:
 
 ```jsx
-<input binding="$example" />
+<input binding="state.example" />
+```
+
+This is actually a shorthand for:
+
+```jsx
+<input binding={["state","example"]} />
 ```
 
 In many cases, it would be desirable to directly alter higher level state. When this state is referred to by component attributes, we can bind to it by using a path array:
@@ -646,10 +680,10 @@ let users = {1: "Frank"};
 let node = <UserNameEditor users={users}, userId={1} />;
 ```
 
-It is also possible to bind to state that is not (indirectly) referred to by the components attributes. Just give you state array or objects as the first element in the binding array. Like this:
+It is also possible to bind to state that is not (indirectly) referred to by the components attributes. Just pass an array or object as the first element of the binding array. Like this:
 
 ```jsx
-let list = [];
+let list = [1,2,3];
 function ListItem(attrs) {
 	return <input binding={[list, attrs.itemId]} />
 }

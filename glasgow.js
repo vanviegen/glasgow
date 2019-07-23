@@ -22,7 +22,7 @@ let debug = 1;
 	// 2. reserved
 	// 3. same as 1 + glasgow.log every DOM update
 
-function VNode(tag, attrs, children, key) {
+function VNode(tag, attrs, children) {
 	this.tag = tag;
 	this.attrs = attrs;
 	this.children = children;
@@ -87,22 +87,22 @@ function addChild(children, child) {
 
 function attrsEqual(p1,p2) {
 	for(let k in p1) {
-		if (k[0]!=='$' && p1[k]!==p2[k]) return false;
+		if (p1[k]!==p2[k] && k!=='state') return false;
 	}
 	for(let k in p2) {
-		if (k[0]!=='$' && !p1.hasOwnProperty(k)) return false;
+		if (!p1.hasOwnProperty(k) && k!=='state') return false;
 	}
 	return true;
 }
 
 
 function resolveBinding(binding, attrs) {
-	if (typeof binding === 'string') return [attrs,binding];
-	for(let i=0; i<binding.length-1; i++) {
-		let term = binding[i];
+	let parts = binding instanceof Array ? binding : binding.split('.');
+	for(let i=0; i<parts.length-1; i++) {
+		let term = parts[i];
 		attrs = typeof term === 'object' ? term : (attrs[term] = attrs[term] || {});
 	}
-	return [attrs, binding[binding.length-1]];
+	return [attrs, parts[parts.length-1]];
 }
 
 function writeBinding(binding, attrs, value) {
@@ -205,6 +205,7 @@ function mount(domParent, rootFunc, rootProps = {}) {
 
 		let tag = newNode.tag;
 		if (typeof tag === 'function') { // create a component
+			if (typeof newNode.tag.start === 'function') newNode.tag.start(newNode.attrs);
 			newNode.concrete = materialize(newNode);
 			return create(newNode.concrete, newNode.attrs, parentStable);
 		}
@@ -249,8 +250,13 @@ function mount(domParent, rootFunc, rootProps = {}) {
 		let tag = newNode.tag;
 		if (typeof tag === 'function') { // a component
 			// When the attributes match, we will transfer state from the old component.
-			if (newNode.attrs!==oldNode.attrs && attrsEqual(newNode.attrs,oldNode.attrs)) {
-				newNode.attrs = oldNode.attrs;
+			if (newNode.attrs===oldNode.attrs || attrsEqual(newNode.attrs,oldNode.attrs)) {
+				if (newNode.attrs.state !== oldNode.attrs.state) {
+					newNode.attrs.state = oldNode.attrs.state;
+				}
+			} else {
+				if (typeof tag.stop === 'function') tag.stop(oldNode.attrs);
+				if (typeof tag.start === 'function') tag.start(newNode.attrs);
 			}
 
 			let materialized = materialize(newNode);
@@ -259,7 +265,7 @@ function mount(domParent, rootFunc, rootProps = {}) {
 				newNode.concrete = patch(materialized, oldNode.concrete, domPath, newNode.attrs);
 			} else {
 				// the top-level tag or key for this component changed
-				destroy(oldNode.concrete, oldNode);
+				destroy(oldNode.concrete, oldNode.attrs);
 				newNode.concrete = materialized;
 
 				let parentE = resolveDomPath(domPath, domPathPos-1);
@@ -530,7 +536,10 @@ function mount(domParent, rootFunc, rootProps = {}) {
 	
 	function destroy(node, attrs, element) {
 		if (typeof node === 'string') return;
-		if (node.concrete) return destroy(node.concrete, node, element);
+		if (node.concrete) {
+			if (typeof node.tag.stop === 'function') node.tag.stop(node.attrs);
+			return destroy(node.concrete, node.attrs, element);
+		}
 		let children = node.children;
 		for(let i = 0; i < children.length; i++) {
 			destroy(children[i], attrs);

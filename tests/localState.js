@@ -1,6 +1,6 @@
 function Stateful(props) {
-	props.$count = props.$count ? props.$count+1 : 1;
-	return glasgow('div', {}, ''+props.$count);
+	props.state = props.state ? props.state+1 : 1;
+	return glasgow('div', {}, ''+props.state);
 }
 
 exports.keep = [{
