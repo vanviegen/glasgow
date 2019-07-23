@@ -29,7 +29,7 @@ Glasgow is primarily meant for educational use. It has the same main features as
 
 - *Easy* animations(#glasgowfadeinattrs-element-parentstable) for element creation and destruction.
 
-- *Tiny*. About 4kb minified and gzipped. Built from a [single source file](glasgow.js) that is small enough to read. No dependencies.
+- *Tiny*. Less than 4kb minified and gzipped. Built from a [single source file](glasgow.js) that is small enough to read. No dependencies.
 
 - *Fast* enough. Rendering seems [about as fast as React](https://www.vanviegen.net/glasgow/benchmark.html). Startup is a lot speedier.
 
@@ -226,13 +226,9 @@ Apart from installing and importing this library, you'll need to setup *babel* t
     * [glasgow.transition({element, from, to, time, easing, keep})](#glasgowtransitionelement-from-to-time-easing-keep)
     * [glasgow.refresh()](#glasgowrefresh)
     * [glasgow.refreshNow()](#glasgowrefreshNow)
-    * [glasgow.refreshify(func)](#glasgowrefreshifyfunc)
-    * [glasgow.fetch(...)](#glasgowfetch)
  * [Instances](#instances)
     * [instance.refresh()](#instancerefresh)
     * [instance.refreshNow()](#instancerefreshnow)
-    * [instance.refreshify(func)](#instancerefreshifyfunc)
-    * [instance.fetch(...)](#instancefetch)
     * [instance.unmount()](#instanceunmount)
     * [instance.getTree()](#instancegettree)
  * [Reconciliation](#reconciliation)
@@ -385,14 +381,6 @@ Does an `instance.refresh()` on all mounted glasgow instances.
 
 Does an `instance.refreshNow()` on all mounted glasgow instances.
 
-#### glasgow.refreshify(func)
-
-Just a little utility that returns a function wrapping `func`. It will make sure `refresh()` gets called after every function invocation. And in case `func` returns a Promise, it'll fire again when the Promise is fulfilled. 
-
-#### glasgow.fetch(...)
-
-Just a convenient `glasgow.refreshify(window.fetch)`. If you need to polyfill the `fetch` API (you're supporting Internet Explorer), make sure the polyfill is loaded before you load glasgow.
-
 
 ### Instances
 
@@ -405,14 +393,6 @@ Schedules an asynchronous refresh. This happens automatically after handling a g
 #### instance.refreshNow()
 
 Refresh synchronously.
-
-#### instance.refreshify(func)
-
-Just a little utility that returns a function wrapping `func`. It will make sure `refresh()` gets called after every function invocation. And in case `func` returns a Promise, it'll fire again when the Promise is fulfilled. 
-
-#### instance.fetch(...)
-
-Just a convenient `instance.refreshify(window.fetch)`. If you need to polyfill the `fetch` API (you're supporting Internet Explorer), make sure the polyfill is loaded before you load glasgow.
 
 #### instance.unmount()
 
@@ -590,29 +570,43 @@ When it is determined that state can be preserved safely, the `state` attribute 
 function Fetcher(attrs) {
   if (!attrs.state) {
     attrs.state = {};
-    glasgow.fetch(attrs.url)
+    fetch(attrs.url)
       .then(resp => resp.text())
-      .then(text => attrs.state.data = text);
+      .then(text => {
+	      attrs.state.data = text;
+	      glasgow.refresh();
+	  });
   }
   return attrs.state.data==null ? <em>Loading...</em> : attrs.state.data;
 }
 ```
 
+While the above works, making sure you don't initiate another `fetch` on every refresh can be tiresome and error prone. Component events provide a cleaner solution:
+
 #### Component events
 
-There are cases where you'll want to initialize a component instance when it is first created -- some logic you *don't* want to run on every refresh. Fetching data from the server, for instance. For that a `start` function can be defined *on the component function*. An example
+There are cases where you'll want to initialize a component instance when it is first created -- some logic you *don't* want to run on every refresh. Fetching data from the server, for instance. For that a `start` function can be defined *on the component function*. An example, using an `async` `start` function:
 
 ```JSX
-const MyComponent = attrs => {
-	if (attrs.state) return "Loading...";
-	return "Fetched data: "+JSON.stringify(attrs.state);
+import $ from './glasgow.js';
+
+const FollowerCount = attrs => {
+	if (!attrs.state) return $("em", "Loading...");
+	return attrs.state.followers + ' followers!';
 };
-MyComponent.start = async attrs => {
-	let rsp = await glasgow.fetch("https://api.github.com/users/vanviegen");
-	rsp.state = await response.json();
-	// glasgow.fetch will automatically trigger a refresh when this is done
+
+FollowerCount.start = async attrs => {
+	let rsp = await fetch("https://api.github.com/users/vanviegen");
+	attrs.state = await rsp.json();
+	// We need to signal Glasgow that data has been updated:
+	$.refresh();
 };
+
+$.mount(document.body, FollowerCount);
 ```
+
+You may also define a `stop` function, in case some teardown needs to be done. For instance, if the `start` function initiated streaming live data over WebSocket, this would be an appropriate place to stop the streaming. Like `start`, the `stop` function receives the component attributes object as its only argument.
+
 
 #### Component CSS
 
@@ -668,6 +662,12 @@ This is actually a shorthand for:
 <input binding={["state","example"]} />
 ```
 
+Without the use of the binding attribute, you'd have to write something like this:
+
+```jsx
+<input value={attrs.state.example} oninput={event => attrs.state.example = this.value} />
+```
+
 In many cases, it would be desirable to directly alter higher level state. When this state is referred to by component attributes, we can bind to it by using a path array:
 
 ```jsx
@@ -708,6 +708,10 @@ function MyIcon(attrs) {
 ## Changelog
 
 Breaking and important changes in major revisions.
+
+v0.8:
+- Remove `refreshify` and `fetch` utility functions. They turned out not to be very useful and a bit confusing.
+- Added `start` and `stop` [component life cycle events](#component-events).
 
 v0.7:
 - It's now possible to attach stylesheets to components. See [Component CSS](#component-css).

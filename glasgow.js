@@ -12,8 +12,6 @@ const NOT_HANDLED = {}; // constant that can be returned by event handlers
 
 let instances = [];
 
-let fetch = window.fetch ? window.fetch.bind(window) : null;
-
 let cssClassCounter = 0; // used for generating unique class names for component css
 
 let debug = 1;
@@ -115,21 +113,6 @@ function readBinding(binding, attrs) {
 	return obj[key];
 }
 
-function refreshify(func) {
-	let refreshNow = this.refreshNow;
-	
-	function refreshEventResult (result) {
-		refreshNow();
-		if (result && typeof result.then === 'function') {
-			result.then(refreshEventResult);
-		}
-		return result;
-	}
-
-	return function() {
-		return refreshEventResult(func.apply(this, arguments));
-	}
-}
 
 const upperCaseRegEx = /[A-Z]/g;
 const upperToSnake = (letter) => '-' + letter.toLowerCase();
@@ -154,9 +137,7 @@ function objToCss(className, obj) {
 
 function mount(domParent, rootFunc, rootProps = {}) {
 
-	let treeRoot = {tag: rootFunc, attrs: {}, concrete: {tag: 'div', attrs: {}, children: []}};
-	let domRoot = document.createElement('div');
-	domParent.appendChild(domRoot);
+	let treeRoot, domRoot;
 
 	let domReads, domWrites; // DOM operations counters
 	let newDelegatedEvents = {}, allDelegatedEvents = {}; // eg {'onclick' => true}
@@ -164,8 +145,7 @@ function mount(domParent, rootFunc, rootProps = {}) {
 	let insertCss = '';
 
 	let scheduled = 0;
-	let instance = {refresh, refreshNow, unmount, refreshify, getTree};
-	if (fetch) instance.fetch = instance.refreshify(fetch);
+	let instance = {refresh, refreshNow, unmount, getTree};
 
 	instances.push(instance);
 
@@ -482,12 +462,12 @@ function mount(domParent, rootFunc, rootProps = {}) {
 	
 	
 	function refresh() {
-		if (debug && scheduled<0) console.warn("refresh triggered during refresh");
-		if (scheduled<1) scheduled = setTimeout(refreshNow, 0);
+		if (scheduled<0) scheduled--;
+		else if (scheduled<1) scheduled = setTimeout(refreshNow, 0);
 	}
 
 	function refreshNow() {
-		if (debug && scheduled < 0) console.error("recursive invocation?");
+		if (scheduled<0) return;
 		scheduled = -1;
 
 		let oldTree = treeRoot;
@@ -496,8 +476,12 @@ function mount(domParent, rootFunc, rootProps = {}) {
 		domReads = domWrites = 0;
 		let startTime = new Date();
 
-		if (debug && !canPatch(treeRoot, oldTree)) console.error("root cannot be patched", treeRoot, oldTree);
-		treeRoot = patch(treeRoot, oldTree, [domRoot], {});
+		if (oldTree) {
+			treeRoot = patch(treeRoot, oldTree, [domRoot], {});
+		} else {
+			domRoot = create(treeRoot, rootProps, false);
+			domParent.appendChild(domRoot);
+		}
 
 		for(let event in newDelegatedEvents) {
 			domRoot.addEventListener(event, delegator, true);
@@ -522,7 +506,11 @@ function mount(domParent, rootFunc, rootProps = {}) {
 		}
 		afterRefreshArray.length = 0;
 
-		if (scheduled===-1) scheduled = 0;
+		if (scheduled < -1) {
+			scheduled = 0;
+			return refreshNow();
+		}
+		scheduled = 0;
 	}
 	
 					
@@ -730,9 +718,7 @@ glasgow.fadeOut = fadeOut;
 glasgow.setDebug = setDebug;
 glasgow.refresh = getInstancesCaller('refresh');
 glasgow.refreshNow = getInstancesCaller('refreshNow');
-glasgow.refreshify = refreshify;
 glasgow.log = function() { // ment to be overridden
 	console.log.apply(console, arguments);
 };
-if (fetch) glasgow.fetch = glasgow.refreshify(fetch);
 
