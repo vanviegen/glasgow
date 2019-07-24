@@ -1,15 +1,15 @@
-const ComponentDiv = props => glasgow('div')
-const ComponentSpan = props => glasgow('span')
+const ComponentDiv = props => gg('div')
+const ComponentSpan = props => gg('span')
 const ComponentText = props => "stringlet"
 
 let types = [
 	{
 		name: "div",
-		root: () => glasgow('div'),
+		root: () => gg('div'),
 		result: `div{}`
 	}, {
 		name: "span",
-		root: () => glasgow('span'),
+		root: () => gg('span'),
 		result: `span{}`
 	}, {
 		name: "text",
@@ -17,15 +17,15 @@ let types = [
 		result: `"stringlet"`
 	}, {
 		name: "componentDiv",
-		root: () => glasgow(ComponentDiv),
+		root: () => gg(ComponentDiv),
 		result: `div{}`
 	}, {
 		name: "componentSpan",
-		root: () => glasgow(ComponentSpan),
+		root: () => gg(ComponentSpan),
 		result: `span{}`
 	}, {
 		name: "componentText",
-		root: () => glasgow(ComponentText),
+		root: () => gg(ComponentText),
 		result: `"stringlet"`
 	}
 ];

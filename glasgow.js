@@ -30,17 +30,15 @@ const dotRegEx = /\./g;
 
 export default function glasgow(tag, ...args) {
 	let children = [];
-	let attrs;
+	let attrs = {};
 
 	for(let arg of args) {
 		if (typeof arg==='object' && arg!==null && arg.constructor === Object) {
-			if (attrs) throw new Error("more than one attributes objects");
-			attrs = arg;
+			Object.assign(attrs, arg);
 		} else {
 			addChild(children, arg);
 		}
 	}
-	attrs = attrs || {};
 
 	if (typeof tag === 'string') {
 		let pos = tag.indexOf('@');
@@ -476,9 +474,10 @@ function mount(domParent, rootFunc, rootProps = {}) {
 		domReads = domWrites = 0;
 		let startTime = new Date();
 
-		if (oldTree) {
+		if (oldTree && canPatch(treeRoot,oldTree)) {
 			treeRoot = patch(treeRoot, oldTree, [domRoot], {});
 		} else {
+			if (oldTree) destroy(oldTree, rootProps);
 			domRoot = create(treeRoot, rootProps, false);
 			domParent.appendChild(domRoot);
 		}

@@ -49,8 +49,8 @@ Glasgow is primarily meant for educational use. It has the same main features as
 
 // Load the glasgow library from a CDN. As we will be using the default 
 // function continuously in places where we want to avoid clutter, I'll
-// give it a really short name: $.
-import $ from 'https://cdn.jsdelivr.net/npm/glasgow@0.7.0/glasgow.js';
+// give it a really short name: gg.
+import gg from 'https://cdn.jsdelivr.net/npm/glasgow@0.8.1/glasgow.js';
 
 
 // I'm using global state here for the list. We could have also chosen to pass
@@ -63,9 +63,9 @@ let list = [];
 // A component gets a (JSX) attributes object and an array of children (which
 // we're ignoring here).
 function Item(attrs, children) {
-  return $('li', {oncreate: $.fadeIn, onremove: $.fadeOut},
-    $('label', attrs.key),
-    $('.delete', {onclick: deleteItem}, '✖')
+  return gg('li', {oncreate: gg.fadeIn, onremove: gg.fadeOut},
+    gg('label', attrs.key),
+    gg('.delete', {onclick: deleteItem}, '✖')
   );
 }
 
@@ -100,11 +100,11 @@ function ToDo(attrs, children) {
   // into a list of virtual DOM elements.
   // `key` is a special attribute, as it's used to match-up old elements with
   // new elements when doing a refresh. (See: Reconciliation.)
-  return $('main',
-    $('h1', 'Mandatory ToDo example'),
-    list.map(key => $(Item, {key})),
-    $('input', {type: 'text', placeholder: 'New item', binding: 'state.newItem'}),
-    $('input', {type: 'button', value: 'Add', onclick: addItem})
+  return gg('main',
+    gg('h1', 'Mandatory ToDo example'),
+    list.map(key => gg(Item, {key})),
+    gg('input', {type: 'text', placeholder: 'New item', binding: 'state.newItem'}),
+    gg('input', {type: 'button', value: 'Add', onclick: addItem})
   )
   // We're binding the text input to `state.newItem`, meaning it is synced with
   // `attrs.state.newItem`. (See: Bindings.)
@@ -119,8 +119,7 @@ function addItem(event, attrs) {
 
 
 // And this is where we add the ToDo component to the DOM. Presto!
-$.mount(document.body, ToDo);
-
+gg.mount(document.body, ToDo);
 ```
 
 
@@ -541,9 +540,7 @@ There are two types of virtual DOM nodes:
 
 Components are just JavaScript functions that return a virtual DOM node. They receive two arguments:
 
-- `attrs`: an attributes object, based on the JSX attributes. There are two special cases of attributes, their keys starting with...
-  - `$`: these are state variables. (See: Component state.)
-  - `_`: these are glasgow internals (such as `_t` for the tag and `_c` for children). You shouldn't rely on these, as their semantics may change in minor releases.
+- `attrs`: an attributes object, based on the JSX attributes (or just the provided attributes object). There can be one special attribute in this object, with key name `state`. This is the state variable, that will be copied onto the next refresh if (and only if) all other attrbutes are unchanged.
 - `children`: a (possibly empty) array of virtual DOM nodes. In case, as is common, your component doesn't need to display any caller-specified *content HTML*, you can just ignore this. For example, one can imagine a `PageTemplate` component receiving content. But a `Thumbnail` component probably woudn't.
 
 #### Component state
@@ -588,10 +585,10 @@ While the above works, making sure you don't initiate another `fetch` on every r
 There are cases where you'll want to initialize a component instance when it is first created -- some logic you *don't* want to run on every refresh. Fetching data from the server, for instance. For that a `start` function can be defined *on the component function*. An example, using an `async` `start` function:
 
 ```JSX
-import $ from './glasgow.js';
+import gg from './glasgow.js';
 
 const FollowerCount = attrs => {
-	if (!attrs.state) return $("em", "Loading...");
+	if (!attrs.state) return gg("em", "Loading...");
 	return attrs.state.followers + ' followers!';
 };
 
@@ -599,10 +596,10 @@ FollowerCount.start = async attrs => {
 	let rsp = await fetch("https://api.github.com/users/vanviegen");
 	attrs.state = await rsp.json();
 	// We need to signal Glasgow that data has been updated:
-	$.refresh();
+	gg.refresh();
 };
 
-$.mount(document.body, FollowerCount);
+gg.mount(document.body, FollowerCount);
 ```
 
 You may also define a `stop` function, in case some teardown needs to be done. For instance, if the `start` function initiated streaming live data over WebSocket, this would be an appropriate place to stop the streaming. Like `start`, the `stop` function receives the component attributes object as its only argument.

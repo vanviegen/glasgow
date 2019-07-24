@@ -1,21 +1,21 @@
 exports.inElement = [{
-	root: props => glasgow('b', {}, ["test1"]),
+	root: props => gg('b', ["test1"]),
 	result: `b{"test1"}`
 }, {
-	root: props => glasgow('b', {}, "test2"),
+	root: props => gg('b', "test2"),
 	result: `b{"test2"}`,
 	maxNew: 0
 }, {
-	root: props => glasgow('b', {}, 3),
+	root: props => gg('b', 3),
 	result: `b{"3"}`,
 	maxNew: 0
 }];
 
 exports.inElementNumeric = [{
-	root: props => glasgow('b', {}, [1]),
+	root: props => gg('b', [1]),
 	result: `b{"1"}`
 }, {
-	root: props => glasgow('b', {}, "test2"),
+	root: props => gg('b', "test2"),
 	result: `b{"test2"}`,
 	maxNew: 0
 }];
@@ -48,34 +48,34 @@ exports.rootNumeric = [{
 const Cmp = (props,children) => children[0]
 
 exports.componentRoot = [{
-	root: props => glasgow(Cmp, null, "test1"),
+	root: props => gg(Cmp, "test1"),
 	result: `"test1"`
 }, {
-	root: props => glasgow(Cmp, null, "test2"),
+	root: props => gg(Cmp, "test2"),
 	result: `"test2"`,
 	maxNew: 0
 }, {
-	root: props => glasgow(Cmp, null, 3),
+	root: props => gg(Cmp, 3),
 	result: `"3"`,
 	maxNew: 0
 }];
 
 
 exports.componentRootNumeric = [{
-	root: props => glasgow(Cmp, null, 4),
+	root: props => gg(Cmp, 4),
 	result: `"4"`
 }, {
-	root: props => glasgow(Cmp, null, "test5"),
+	root: props => gg(Cmp, "test5"),
 	result: `"test5"`,
 	maxNew: 0
 }];
 
 
 exports.argumentOrder = [{
-	root: props => glasgow('section.card@key',
+	root: props => gg('section.card@key',
 		'Click here:',
 		123,
-		glasgow('button', { // attrs first
+		gg('button', { // attrs first
 			id: 'b',
 			className: 'c'
 		}, 'Click me'),

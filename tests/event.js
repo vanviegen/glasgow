@@ -1,21 +1,21 @@
 exports.click = [{
 	root: function(attrs) {
-		attrs.$v = attrs.$v || 0;
-		return glasgow('h1',
+		attrs.state = attrs.state || 0;
+		return gg('h1',
 			{
 				onclick: function() {
-					attrs.$v += 100;
+					attrs.state += 100;
 				}
 			},
-			glasgow('h2',
+			gg('h2',
 				{
 					onclick: function() {
-						attrs.$v++;
+						attrs.state++;
 					}
 				},
-				glasgow('h3', {id: 'x'})
+				gg('h3', {id: 'x'})
 			),
-			attrs.$v
+			attrs.state
 		);
 	},
 
@@ -35,10 +35,10 @@ exports.click = [{
 
 exports.bind = [{
 	root: function(attrs) {
-		attrs.$inp = attrs.$inp || "a";
+		attrs.state = attrs.state || "a";
 		return [
-			glasgow('input', {binding:'$inp',id:'x'}),
-			glasgow('div', attrs.$inp)
+			gg('input', {binding:'state',id:'x'}),
+			gg('div', attrs.state)
 		];
 	},
 
@@ -54,16 +54,16 @@ exports.bind = [{
 
 exports.fadeOut = [{
 	root: function(attrs) {
-		return glasgow('h1', {},
-			glasgow('h2', {
-				onremove: glasgow.fadeOut
+		return gg('h1',
+			gg('h2', {
+				onremove: gg.fadeOut
 			})
 		);
 	},
 	result: `h1{h2{}}`,
 }, {
 	root: function(attrs) {
-		return glasgow('h1');
+		return gg('h1');
 	},
 	after: function(body) {
 		if (body.toString().indexOf('body{h1{h2{')!==0) throw new Error('h2 should linger');

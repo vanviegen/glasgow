@@ -207,15 +207,15 @@ async function runTest(file, testname) {
 
 		// Start with a clean copy of Glasgow for every test
 		delete require.cache[require.resolve('../glasgow-cjs.js')]
-		const glasgow = require("../glasgow-cjs.js");
+		const gg = require("../glasgow-cjs.js");
 		let logs = [];
-		glasgow.log = function(...args) {
+		gg.log = function(...args) {
 			logs.push(args);
 			if (verbose>1) console.log(" ", ...args);
 		}
 
-		global.glasgow = glasgow;
-		glasgow.setDebug(setDebug);
+		global.gg = gg;
+		gg.setDebug(setDebug);
 
 		// Start with a clean copy of the test module for every test
 		delete require.cache[require.resolve('./'+file)];
@@ -235,7 +235,7 @@ async function runTest(file, testname) {
 		}
 		for(let i=0; i<steps.length; i++) {
 			try {
-				glasgow.log(`STEP ${i}`);
+				gg.log(`STEP ${i}`);
 				newCount = 0;
 				changeCount = 0;
 				insertedCss = "";
@@ -245,7 +245,7 @@ async function runTest(file, testname) {
 					mount = null;
 				} else {
 					if (mount) mount.refreshNow();
-					else mount = glasgow.mount(body, root, rootProps);
+					else mount = gg.mount(body, root, rootProps);
 				}
 				if (step.result!=null) {
 					body.assertChildren(step.result);

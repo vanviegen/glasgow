@@ -18,16 +18,16 @@ Cmp.stop = function(ctx) {
 };
 
 exports.multiChild = [{
-	root: attrs => glasgow(Cmp, null, "test1"),
+	root: attrs => gg(Cmp, "test1"),
 	result: `"test1"`
 }, {
-	root: attrs => glasgow(Cmp, null, "test2", "test3"),
+	root: attrs => gg(Cmp, "test2", "test3"),
 	result: `div{"test2" "test3"}`
 }, {
-	root: attrs => glasgow(Cmp, null, glasgow(Cmp,{},"test2"), glasgow("h1",{},"test3")),
+	root: attrs => gg(Cmp, gg(Cmp,{},"test2"), gg("h1",{},"test3")),
 	result: `div{"test2" h1{"test3"}}`
 }, {
-	root: attrs => glasgow(Cmp, null),
+	root: attrs => gg(Cmp, null),
 	result: `div{}`
 }];
 
@@ -38,36 +38,36 @@ function checkRunning(...expected) {
 }
 
 exports.startStop = [{
-	root: attrs => glasgow(Cmp, {id:1}),
+	root: attrs => gg(Cmp, {id:1}),
 	result: `"1"`,
 	after: function() {
 		checkRunning(1);
 	}
 },{
-	root: attrs => glasgow(Cmp, {id:2}),
+	root: attrs => gg(Cmp, {id:2}),
 	result: `"4"`,
 	after: function() {
 		checkRunning(2);
 	}
 },{
-	root: attrs => glasgow('div'),
+	root: attrs => gg('div'),
 	after: function() {
 		checkRunning();
 	}
 },{
-	root: attrs => glasgow(Cmp, {id:3, state: 'x'}, glasgow(Cmp, {id:4}), glasgow(Cmp, {id:5})),
+	root: attrs => gg(Cmp, {id:3, state: 'x'}, gg(Cmp, {id:4}), gg(Cmp, {id:5})),
 	after: function() {
 		checkRunning(3,4,5);
 		startCount = 0;
 	}
 },{
-	root: attrs => glasgow(Cmp, {id:3}, glasgow(Cmp, {id:4}), glasgow(Cmp, {id:5})),
+	root: attrs => gg(Cmp, {id:3}, gg(Cmp, {id:4}), gg(Cmp, {id:5})),
 	after: function() {
 		checkRunning(3,4,5);
 		if (startCount!=0) throw new Error("start/stop cycle when not changing anything");
 	}
 },{
-	root: attrs => glasgow(Cmp, {id:3, x: 'x'}, glasgow(Cmp, {id:4}), glasgow(Cmp, {id:5})),
+	root: attrs => gg(Cmp, {id:3, x: 'x'}, gg(Cmp, {id:4}), gg(Cmp, {id:5})),
 	after: function() {
 		// 3 should restart, 4 and 5 can continue running
 		checkRunning(4,5,3);
