@@ -52,7 +52,7 @@ Glasgow is primarily meant for educational use. It has the same main features as
 // Load the glasgow library from a CDN. As we will be using the default 
 // function continuously in places where we want to avoid clutter, I'll
 // give it a really short name: gg.
-import gg from 'https://cdn.jsdelivr.net/npm/glasgow@0.9.1/glasgow.js';
+import gg from 'https://cdn.jsdelivr.net/npm/glasgow@0.9.4/glasgow.js';
 
 
 // I'm using global state here for the list. We could have also chosen to pass
