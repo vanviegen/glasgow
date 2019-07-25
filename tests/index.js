@@ -127,7 +127,7 @@ class Element extends ElementBase {
 	toString() {
 		let props = Object.assign({}, this);
 		for(let k in this.attrs) props['@'+k] = this.attrs[k];
-		for(let k in this.style) props['$'+k] = this._style[k];
+		for(let k in this.style) props[':'+k] = this._style[k];
 		delete props.tag;
 		delete props.attrs;
 		delete props._style;
@@ -228,7 +228,6 @@ async function runTest(file, testname) {
 		timeouts = [];
 
 		let mount;
-		let rootProps = {abc:23};
 		var step;
 		function root() {
 			return step.root.apply(this, arguments);
@@ -245,7 +244,7 @@ async function runTest(file, testname) {
 					mount = null;
 				} else {
 					if (mount) mount.refreshNow();
-					else mount = gg.mount(body, root, rootProps);
+					else mount = gg.mount(body, root, {abc:23});
 				}
 				if (step.result!=null) {
 					body.assertChildren(step.result);

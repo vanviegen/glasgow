@@ -15,7 +15,9 @@ exports.className = [{
 	maxNew: 0
 }];
 
-const StyledComponent = attrs => gg('div.'+(attrs.className||''), gg('span'));
+function StyledComponent() {
+	return gg('div.'+(this.className||''), gg('span'));
+}
 
 StyledComponent.css = {
 	backgroundColor: 'red',
@@ -30,6 +32,33 @@ exports.style = [{
 	css: `.GlGw1{background-color:red;}.GlGw1 > span{color:blue;}`
 },{
 	root: props => gg(StyledComponent,{className: 'cn'}),
+	result: `div{@class="cn GlGw1" span{}}`,
+	css: ``,
+	maxNew: 0,
+	maxChange: 1
+}];
+
+class StyledComponentClass {
+	render() {
+		return gg('div.'+(this.className||''), gg('span'));
+	}
+	css() {
+		if (this!=null) throw new Error("css() may not use this");
+		return {
+			backgroundColor: 'red',
+			'> span': {
+				color: 'blue'
+			}
+		}
+	}
+}
+
+exports.style = [{
+	root: props => gg(StyledComponentClass),
+	result: `div{@class="GlGw1" span{}}`,
+	css: `.GlGw1{background-color:red;}.GlGw1 > span{color:blue;}`
+},{
+	root: props => gg(StyledComponentClass,{className: 'cn'}),
 	result: `div{@class="cn GlGw1" span{}}`,
 	css: ``,
 	maxNew: 0,

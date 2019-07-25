@@ -45,7 +45,9 @@ exports.rootNumeric = [{
 }];
 
 
-const Cmp = (props,children) => children[0]
+function Cmp(children) {
+	return children[0];
+}
 
 exports.componentRoot = [{
 	root: props => gg(Cmp, "test1"),

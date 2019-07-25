@@ -1,21 +1,25 @@
-const Cmp = (attrs, children) => [children, attrs.state ? attrs.state.squared : null]
+const Cmp = {
+	render(children) {
+		return [children, this.$squared]
+	},
+	start() {
+		//console.log('start',this);
+		running.push(this.id);
+		startCount++;
+		if (this.id) {
+			this.$squared = this.id*this.id;
+		}
+	},
+	stop() {
+		//console.log('stop',this);
+		let pos = running.indexOf(this.id);
+		if (pos<0) throw new Error("this not found");
+		running.splice(pos,1);
+	}
+}
 
 let running = [];
 let startCount = 0;
-Cmp.start = function(ctx) {
-	//console.log('start',ctx);
-	running.push(ctx.id);
-	startCount++;
-	if (ctx.id) {
-		ctx.state = {squared: ctx.id*ctx.id};
-	}
-};
-Cmp.stop = function(ctx) {
-	//console.log('stop',ctx);
-	let pos = running.indexOf(ctx.id);
-	if (pos<0) throw new Error("ctx not found");
-	running.splice(pos,1);
-};
 
 exports.multiChild = [{
 	root: attrs => gg(Cmp, "test1"),
@@ -55,7 +59,7 @@ exports.startStop = [{
 		checkRunning();
 	}
 },{
-	root: attrs => gg(Cmp, {id:3, state: 'x'}, gg(Cmp, {id:4}), gg(Cmp, {id:5})),
+	root: attrs => gg(Cmp, {id:3, $squared: 'x'}, gg(Cmp, {id:4}), gg(Cmp, {id:5})),
 	after: function() {
 		checkRunning(3,4,5);
 		startCount = 0;
@@ -79,3 +83,62 @@ exports.startStop = [{
 		checkRunning();
 	}
 }];
+
+
+
+const EventObj = {
+	start(){
+		this.$x = 1;
+	},
+	render() {
+		return gg('a', '#'+this.$x, {id: 'click', onclick: this.incrX});
+	},
+	incrX() {
+		this.$x++;
+	}
+};
+
+exports.event = [{
+	root: function() {
+		return gg(EventObj);
+	},
+	after: function(body) {
+		for(let i=0; i<2; i++) {
+			setTimeout(function() {
+				body.getElementById('click').event('click');
+			}, 100+i*300);
+			setTimeout(function() {
+				body.assertChildren(`a{@id="click" "#${i+2}"}`);
+			}, 200+i*300);
+		}
+	}
+}];
+
+class EventClass {
+	start(){
+		this.$x = 1;
+	}
+	render() {
+		return gg('a', '#'+this.$x, {id: 'click', onclick: this.incrX});
+	}
+	incrX() {
+		this.$x++;
+	}
+};
+
+exports.es6Class = [{
+	root: function() {
+		return gg(EventClass);
+	},
+	after: function(body) {
+		for(let i=0; i<2; i++) {
+			setTimeout(function() {
+				body.getElementById('click').event('click');
+			}, 100+i*300);
+			setTimeout(function() {
+				body.assertChildren(`a{@id="click" "#${i+2}"}`);
+			}, 200+i*300);
+		}
+	}
+}];
+

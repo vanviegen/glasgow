@@ -30,17 +30,18 @@ const dotRegEx = /\./g;
 
 export default function glasgow(tag, ...args) {
 	let children = [];
-	let attrs = {};
-
-	for(let arg of args) {
-		if (typeof arg==='object' && arg!==null && arg.constructor === Object) {
-			Object.assign(attrs, arg);
-		} else {
-			addChild(children, arg);
+	let attrs;
+	if (typeof tag==='object' && tag!==null && typeof tag.render==='function') { // an object with a render method
+		attrs = Object.create(tag);
+	} else if (typeof tag==='function') {
+		if (tag.prototype && typeof tag.prototype.render==='function') { // a class with a render method
+			attrs = new tag;
+			tag = tag.prototype;
+		} else { // a plain function
+			attrs = {};
 		}
-	}
-
-	if (typeof tag === 'string') {
+	} else if (typeof tag === 'string') { // a DOM tag
+		attrs = {};
 		let pos = tag.indexOf('@');
 		if (pos>=0) {
 			attrs.key = tag.substr(pos+1);
@@ -52,8 +53,16 @@ export default function glasgow(tag, ...args) {
 			tag = tag.substr(0,pos);
 		}
 		tag = tag||'div';
-	} else if (debug && typeof tag !== 'function') {
-		throw new Error("first parameter should be a tag string or a component function");
+	} else if (debug) {
+		throw new Error("first parameter should be a tag string, a component function or a component object (containing a render method)");
+	}
+
+	for(let arg of args) {
+		if (typeof arg==='object' && arg!==null && arg.constructor === Object) {
+			Object.assign(attrs, arg);
+		} else {
+			addChild(children, arg);
+		}
 	}
 
 	return new VNode(tag, attrs, children);
@@ -83,10 +92,10 @@ function addChild(children, child) {
 
 function attrsEqual(p1,p2) {
 	for(let k in p1) {
-		if (p1[k]!==p2[k] && k!=='state') return false;
+		if (p1[k]!==p2[k] && k[0]!=='$') return false;
 	}
 	for(let k in p2) {
-		if (!p1.hasOwnProperty(k) && k!=='state') return false;
+		if (p1[k]!==p2[k] && k[0]!=='$') return false;
 	}
 	return true;
 }
@@ -133,27 +142,26 @@ function objToCss(className, obj) {
 
 
 
-function mount(domParent, rootFunc, rootProps = {}) {
+function mount(domParent, ...rootTagArgs) {
 
-	let treeRoot, domRoot;
-
+	let domRoot; // the root DOM element this mount has added
+	let rootVnode; // the currently displaying tree
 	let domReads, domWrites; // DOM operations counters
 	let newDelegatedEvents = {}, allDelegatedEvents = {}; // eg {'onclick' => true}
-	let afterRefreshArray = [];
-	let insertCss = '';
+	let afterRefreshArray = []; // used to fire events after the DOM has been updated
+	let insertCss = ''; // css text to be added to the DOM, used by Component.css
 
-	let scheduled = 0;
+	let scheduled = 0; // 0: not set, >0: a setTimeout handle, -1: refreshing, <-1: refreshing and another refresh is needed
+
 	let instance = {refresh, refreshNow, unmount, getTree};
-
 	instances.push(instance);
-
 	refreshNow();
-
 	return instance;
+
 
 	function materialize(newNode) {
 		let tag = newNode.tag;
-		let res = tag(newNode.attrs, newNode.children);
+		let res = (typeof tag==='function' ? tag : tag.render).call(newNode.attrs, newNode.children);
 		delete newNode.children;
 
 		let arr = [];
@@ -162,6 +170,7 @@ function mount(domParent, rootFunc, rootProps = {}) {
 		if (tag.css) {
 			if (!tag.cssClass) {
 				tag.cssClass = "GlGw" + ++cssClassCounter;
+				if (typeof tag.css==='function') tag.css = tag.css.call(null);
 				insertCss += objToCss('.'+tag.cssClass, tag.css);
 			}
 			for(let el of arr) {
@@ -182,8 +191,8 @@ function mount(domParent, rootFunc, rootProps = {}) {
 		}
 
 		let tag = newNode.tag;
-		if (typeof tag === 'function') { // create a component
-			if (typeof newNode.tag.start === 'function') newNode.tag.start(newNode.attrs);
+		if (typeof tag !== 'string') { // create a component
+			if (typeof tag.start === 'function') tag.start.call(newNode.attrs);
 			newNode.concrete = materialize(newNode);
 			return create(newNode.concrete, newNode.attrs, parentStable);
 		}
@@ -193,7 +202,7 @@ function mount(domParent, rootFunc, rootProps = {}) {
 		domWrites++;
 		if (debug>=3) glasgow.log('glasgow update create', tag);
 		let func = newNode.attrs.oncreate;
-		if (typeof func==='function') afterRefresh(func, el, [{type:'create', parentStable}, context, newNode]);
+		if (typeof func==='function') afterRefresh(func, context, [{element: el, event: {type:'create', parentStable}, node: newNode}]);
 		patch(newNode, EMPTY_NODE, [el], context);
 		return el;
 	}
@@ -220,34 +229,33 @@ function mount(domParent, rootFunc, rootProps = {}) {
 				domWrites++;
 				if (debug>=3) glasgow.log('glasgow update set TextNode', newNode);
 			}
-			return newNode;
+			return;
 		}
 
 		let domPathPos = domPath.length;
 
 		let tag = newNode.tag;
-		if (typeof tag === 'function') { // a component
+		if (typeof tag !== 'string') { // a component
 			// When the attributes match, we will transfer state from the old component.
-			if (newNode.attrs===oldNode.attrs || attrsEqual(newNode.attrs,oldNode.attrs)) {
-				if (newNode.attrs.state !== oldNode.attrs.state) {
-					newNode.attrs.state = oldNode.attrs.state;
+			if (attrsEqual(newNode.attrs,oldNode.attrs)) {
+				for(let key in oldNode.attrs) {
+					if (key[0]==='$') newNode.attrs[key] = oldNode.attrs[key];
 				}
 			} else {
-				if (typeof tag.stop === 'function') tag.stop(oldNode.attrs);
-				if (typeof tag.start === 'function') tag.start(newNode.attrs);
+				if (typeof tag.stop === 'function') tag.stop.call(oldNode.attrs);
+				if (typeof tag.start === 'function') tag.start.call(newNode.attrs);
 			}
 
-			let materialized = materialize(newNode);
+			newNode.concrete = materialize(newNode);
 
-			if (canPatch(materialized, oldNode.concrete)) {
-				newNode.concrete = patch(materialized, oldNode.concrete, domPath, newNode.attrs);
+			if (canPatch(newNode.concrete, oldNode.concrete)) {
+				patch(newNode.concrete, oldNode.concrete, domPath, newNode.attrs);
 			} else {
 				// the top-level tag or key for this component changed
 				destroy(oldNode.concrete, oldNode.attrs);
-				newNode.concrete = materialized;
 
 				let parentE = resolveDomPath(domPath, domPathPos-1);
-				let newE = create(materialized, newNode.attrs, true);
+				let newE = create(newNode.concrete, newNode.attrs, true);
 				let oldE = resolveDomPath(domPath);
 				parentE.replaceChild(newE, oldE);
 
@@ -260,7 +268,7 @@ function mount(domParent, rootFunc, rootProps = {}) {
 					newDelegatedEvents = allDelegatedEvents;
 				}
 			}
-			return newNode;
+			return;
 		}
 		
 		if (debug) newNode.dbgEl = resolveDomPath(domPath);
@@ -282,7 +290,7 @@ function mount(domParent, rootFunc, rootProps = {}) {
 
 		for(start = 0; start < count && canPatch(newChildren[start], oldChildren[start]); start++) {
 			domPath[domPathPos] = start;
-			newChildren[start] = patch(newChildren[start], oldChildren[start], domPath, context);
+			patch(newChildren[start], oldChildren[start], domPath, context);
 		}
 		count -= start;
 
@@ -290,7 +298,7 @@ function mount(domParent, rootFunc, rootProps = {}) {
 		let oldLast = oldChildren.length - 1;
 		for(end = 0; end < count && canPatch(newChildren[newLast-end], oldChildren[oldLast-end]); end++) {
 			domPath[domPathPos] = oldLast-end;
-			newChildren[newLast-end] = patch(newChildren[newLast-end], oldChildren[oldLast-end], domPath, context);
+			patch(newChildren[newLast-end], oldChildren[oldLast-end], domPath, context);
 		}
 
 		if (end+start !== newChildren.length || newChildren.length !== oldChildren.length) {
@@ -336,7 +344,7 @@ function mount(domParent, rootFunc, rootProps = {}) {
 						// Okay, we can recycle a keyed object
 						childDom = oldElements[idx-start];
 						oldElements[idx-start] = undefined;
-						newChildren[i] = patch(newChild, oldChildren[idx], [childDom], context);
+						patch(newChild, oldChildren[idx], [childDom], context);
 					}
 					else if (!newKey || newKey[0]==='~') {
 						// Scan for usable elements around this element
@@ -348,7 +356,7 @@ function mount(domParent, rootFunc, rootProps = {}) {
 								if (!oldKey || (oldKey[0]==='~' && newKeys[oldKey]==null)) {
 									childDom = oldElements[j-start];
 									oldElements[j-start] = undefined;
-									newChildren[i] = patch(newChild, oldChild, [childDom], context);
+									patch(newChild, oldChild, [childDom], context);
 									if (j===start+keepAfterall) {
 										keepAfterall++;
 										continue remainingChildLoop;
@@ -453,9 +461,9 @@ function mount(domParent, rootFunc, rootProps = {}) {
 		}
 
 		let func = newNode.attrs.onrefresh;
-		if (typeof func==='function') afterRefresh(func, resolveDomPath(domPath), [{type:"refresh"}, context, newNode]);
+		if (typeof func==='function') afterRefresh(func, context, [{element: resolveDomPath(domPath), event: {type:"refresh"}, node: newNode}]);
 		
-		return newNode;
+		return;
 	}
 	
 	
@@ -468,17 +476,17 @@ function mount(domParent, rootFunc, rootProps = {}) {
 		if (scheduled<0) return;
 		scheduled = -1;
 
-		let oldTree = treeRoot;
-		treeRoot = glasgow(rootFunc, rootProps);
+		let oldRootVnode = rootVnode;
+		rootVnode = glasgow(...rootTagArgs);
 		
 		domReads = domWrites = 0;
 		let startTime = new Date();
 
-		if (oldTree && canPatch(treeRoot,oldTree)) {
-			treeRoot = patch(treeRoot, oldTree, [domRoot], {});
+		if (oldRootVnode) {
+			if (debug && !canPatch(rootVnode,oldRootVnode)) throw new Error("root canPatch failed");
+			patch(rootVnode, oldRootVnode, [domRoot], {});
 		} else {
-			if (oldTree) destroy(oldTree, rootProps);
-			domRoot = create(treeRoot, rootProps, false);
+			domRoot = create(rootVnode, undefined, false);
 			domParent.appendChild(domRoot);
 		}
 
@@ -517,14 +525,14 @@ function mount(domParent, rootFunc, rootProps = {}) {
 		let pos = instances.indexOf(this);
 		if (pos<0) throw new Error("not mountesd");
 		instances.splice(pos,1);
-		destroy(treeRoot, {}, domRoot);
+		destroy(rootVnode, {}, domRoot);
 		domParent.removeChild(domRoot);
 	}
 	
 	function destroy(node, attrs, element) {
 		if (typeof node === 'string') return;
 		if (node.concrete) {
-			if (typeof node.tag.stop === 'function') node.tag.stop(node.attrs);
+			if (typeof node.tag.stop === 'function') node.tag.stop.call(node.attrs);
 			return destroy(node.concrete, node.attrs, element);
 		}
 		let children = node.children;
@@ -532,7 +540,7 @@ function mount(domParent, rootFunc, rootProps = {}) {
 			destroy(children[i], attrs);
 		}
 		let func = node.attrs.onremove;
-		if (typeof func==='function') return func.call(element, {type: "remove", parentStable: !!element}, attrs, node);
+		if (typeof func==='function') return func.call(attrs, {element, event: {type: "remove", parentStable: !!element}, node});
 	}
 	
 	function resolveDomPath(path,limit) {
@@ -566,7 +574,7 @@ function mount(domParent, rootFunc, rootProps = {}) {
 			indexes.push(i);
 		}
 
-		let tree = treeRoot, context;
+		let tree = rootVnode, context;
 		let treeArray = [];
 		let i = indexes.length;
 		while(true) {
@@ -596,7 +604,7 @@ function mount(domParent, rootFunc, rootProps = {}) {
 			if (typeof func==='function') {
 				doRefresh = true;
 				let attrs = treeArray[i+1];
-				let res = func.call(element, event, attrs, node);
+				let res = func.call(attrs, {element, event, node});
 				if (res !== glasgow.NOT_HANDLED) {
 					event.preventDefault();
 					event.stopPropagation();
@@ -608,11 +616,11 @@ function mount(domParent, rootFunc, rootProps = {}) {
 		if (doRefresh) refreshNow();
 	}
 	
-	function bindingEventHandler(event, context, node) {
-		let val = (node.attrs.type === 'checkbox') ? (node.attrs.checked = this.checked) :
-							(node.attrs.type === 'number') ? parseFloat(node.attrs.value = this.value) :
-							(node.attrs.value = this.value);
-		writeBinding(node.attrs.binding, context, val);
+	function bindingEventHandler({element,node}) {
+		let val = (node.attrs.type === 'checkbox') ? (node.attrs.checked = element.checked) :
+							(node.attrs.type === 'number') ? parseFloat(node.attrs.value = element.value) :
+							(node.attrs.value = element.value);
+		writeBinding(node.attrs.binding, this, val);
 	}
 	
 	function bind(node, context) {
@@ -623,7 +631,7 @@ function mount(domParent, rootFunc, rootProps = {}) {
 	}
 	
 	function getTree() {
-		return treeRoot;
+		return rootVnode;
 	}
 	
 	// Called when we're done updating the DOM
@@ -633,12 +641,12 @@ function mount(domParent, rootFunc, rootProps = {}) {
 	
 }
 
-function fadeOut(event) {
+function fadeOut({element,event}) {
 	if (event.parentStable) return glasgow.transition({
-		element: this,
+		element,
 		to: {
-			marginTop: (this.offsetHeight / -2) + 'px',
-			marginBottom: (this.offsetHeight / -2) + 'px',
+			marginTop: (element.offsetHeight / -2) + 'px',
+			marginBottom: (element.offsetHeight / -2) + 'px',
 			opacity: 0,
 			transform: "scaleY(0)"
 		},
@@ -647,18 +655,18 @@ function fadeOut(event) {
 	});
 }
 
-function fadeIn(event) {
+function fadeIn({element,event}) {
 	if (event.parentStable) return glasgow.transition({
-		element: this,
+		element: element,
 		from: {
-			marginTop: (this.offsetHeight / -2) + 'px',
-			marginBottom: (this.offsetHeight / -2) + 'px',
+			marginTop: (element.offsetHeight / -2) + 'px',
+			marginBottom: (element.offsetHeight / -2) + 'px',
 			opacity: 0,
 			transform: "scaleY(0)"
 		},
 		to: {
-			marginTop: getComputedStyle(this).getPropertyValue('margin-top'),
-			marginBottom: getComputedStyle(this).getPropertyValue('margin-bottom'),
+			marginTop: getComputedStyle(element).getPropertyValue('margin-top'),
+			marginBottom: getComputedStyle(element).getPropertyValue('margin-bottom'),
 			opacity: 1,
 			transform: "scaleY(1)"
 		},

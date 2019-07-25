@@ -43,6 +43,8 @@ for(let a of types) {
 }
 
 exports.rootProps = {
-	root: props => props.abc,
+	root() {
+		return this.abc;
+	},
 	result: `"23"`,
 };

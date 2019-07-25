@@ -1,6 +1,6 @@
-function Stateful(props) {
-	props.state = props.state ? props.state+1 : 1;
-	return gg('div', ''+props.state);
+function Stateful() {
+	this.$count = this.$count ? this.$count+1 : 1;
+	return gg('div', ''+this.$count);
 }
 
 exports.keep = [{

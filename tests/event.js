@@ -1,21 +1,21 @@
 exports.click = [{
-	root: function(attrs) {
-		attrs.state = attrs.state || 0;
+	root: function() {
+		this.$count = this.$count || 0;
 		return gg('h1',
 			{
 				onclick: function() {
-					attrs.state += 100;
+					this.$count += 100;
 				}
 			},
 			gg('h2',
 				{
 					onclick: function() {
-						attrs.state++;
+						this.$count++;
 					}
 				},
 				gg('h3', {id: 'x'})
 			),
-			attrs.state
+			this.$count
 		);
 	},
 
@@ -34,11 +34,11 @@ exports.click = [{
 }];
 
 exports.bind = [{
-	root: function(attrs) {
-		attrs.state = attrs.state || "a";
+	root: function() {
+		this.$state = this.$state || "a";
 		return [
-			gg('input', {binding:'state',id:'x'}),
-			gg('div', attrs.state)
+			gg('input', {binding:'$state',id:'x'}),
+			gg('div', this.$state)
 		];
 	},
 
@@ -53,7 +53,7 @@ exports.bind = [{
 }];
 
 exports.fadeOut = [{
-	root: function(attrs) {
+	root: function() {
 		return gg('h1',
 			gg('h2', {
 				onremove: gg.fadeOut
@@ -62,7 +62,7 @@ exports.fadeOut = [{
 	},
 	result: `h1{h2{}}`,
 }, {
-	root: function(attrs) {
+	root: function() {
 		return gg('h1');
 	},
 	after: function(body) {
@@ -73,3 +73,4 @@ exports.fadeOut = [{
 		// problem is that promises fire only when returning to event loop?
 	}
 }];
+
