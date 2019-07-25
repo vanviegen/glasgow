@@ -202,7 +202,7 @@ function mount(domParent, ...rootTagArgs) {
 		domWrites++;
 		if (debug>=3) glasgow.log('glasgow update create', tag);
 		let func = newNode.attrs.oncreate;
-		if (typeof func==='function') afterRefresh(func, context, [{element: el, event: {type:'create', parentStable}, node: newNode}]);
+		if (typeof func==='function') afterRefresh(func, context, [{element: el, event: {type:'create', parentStable}, vnode: newNode}]);
 		patch(newNode, EMPTY_NODE, [el], context);
 		return el;
 	}
@@ -461,7 +461,7 @@ function mount(domParent, ...rootTagArgs) {
 		}
 
 		let func = newNode.attrs.onrefresh;
-		if (typeof func==='function') afterRefresh(func, context, [{element: resolveDomPath(domPath), event: {type:"refresh"}, node: newNode}]);
+		if (typeof func==='function') afterRefresh(func, context, [{element: resolveDomPath(domPath), event: {type:"refresh"}, vnode: newNode}]);
 		
 		return;
 	}
@@ -540,7 +540,7 @@ function mount(domParent, ...rootTagArgs) {
 			destroy(children[i], attrs);
 		}
 		let func = node.attrs.onremove;
-		if (typeof func==='function') return func.call(attrs, {element, event: {type: "remove", parentStable: !!element}, node});
+		if (typeof func==='function') return func.call(attrs, {element, event: {type: "remove", parentStable: !!element}, vnode: node});
 	}
 	
 	function resolveDomPath(path,limit) {
@@ -604,7 +604,7 @@ function mount(domParent, ...rootTagArgs) {
 			if (typeof func==='function') {
 				doRefresh = true;
 				let attrs = treeArray[i+1];
-				let res = func.call(attrs, {element, event, node});
+				let res = func.call(attrs, {element, event, vnode: node});
 				if (res !== glasgow.NOT_HANDLED) {
 					event.preventDefault();
 					event.stopPropagation();
@@ -616,11 +616,11 @@ function mount(domParent, ...rootTagArgs) {
 		if (doRefresh) refreshNow();
 	}
 	
-	function bindingEventHandler({element,node}) {
-		let val = (node.attrs.type === 'checkbox') ? (node.attrs.checked = element.checked) :
-							(node.attrs.type === 'number') ? parseFloat(node.attrs.value = element.value) :
-							(node.attrs.value = element.value);
-		writeBinding(node.attrs.binding, this, val);
+	function bindingEventHandler({element,vnode:{attrs}}) {
+		let val = (attrs.type === 'checkbox') ? (attrs.checked = element.checked) :
+							(attrs.type === 'number') ? parseFloat(attrs.value = element.value) :
+							(attrs.value = element.value);
+		writeBinding(attrs.binding, this, val);
 	}
 	
 	function bind(node, context) {
