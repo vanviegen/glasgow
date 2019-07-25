@@ -52,7 +52,7 @@ Glasgow is primarily meant for educational use. It has the same main features as
 // Load the glasgow library from a CDN. As we will be using the default 
 // function continuously in places where we want to avoid clutter, I'll
 // give it a really short name: gg.
-import gg from 'https://cdn.jsdelivr.net/npm/glasgow@0.9.0/glasgow.js';
+import gg from 'https://cdn.jsdelivr.net/npm/glasgow@0.9.1/glasgow.js';
 
 
 // I'm using global state here for the list. We could have also chosen to pass
@@ -234,13 +234,13 @@ Apart from installing and importing this library, you'll need to setup *babel* t
     * [instance.refreshNow()](#instancerefreshnow)
     * [instance.unmount()](#instanceunmount)
     * [instance.getTree()](#instancegettree)
+ * [Virtual DOM nodes](#virtual-dom-nodes)
  * [Reconciliation](#reconciliation)
  * [Event handlers](#event-handlers)
     * [Event delegation](#event-delegation)
     * [oncreate](#oncreate)
     * [onremove](#onremove)
     * [onrefresh *(experimental)*](#onrefresh-experimental)
- * [Virtual DOM nodes](#virtual-dom-nodes)
  * [Components](#components)
     * [Component state](#component-state)
     * [Component events](#component-events)
@@ -412,6 +412,17 @@ Returns the currently rendered virtual DOM tree. (See: Virtual DOM nodes.) This 
 
 
 
+### Virtual DOM nodes
+
+There are two types of virtual DOM nodes:
+
+- `VNode` Objects returned by the `glasgow(...)` function.
+
+- Plain old JavaScript strings, which are rendered to DOM `TextNode`s.
+
+
+
+
 ### Reconciliation
 
 Reconciliation is the process of trying to match up elements in the new virtual DOM with elements from the old virtual DOM. Glasgow uses some heuristics to try to get this mostly right. Getting this wrong can have multiple nasty consequences:
@@ -458,14 +469,15 @@ Events can be registered on any HTML virtual DOM node (meaning: *not* on compone
 Event handlers receive arguments like this:
 
 ```jsx
-function handler(event, attrs, node) { ... }
+function handler(info) { ... }
 ```
 
 Where..
-- `this` is the DOM element that received the event.
-- `event` is the DOM event.
-- `attrs` is the attributes object of the component containing this DOM element.
-- `node` is the virtual DOM node (containing the attributes) for the DOM element that received the event.
+- `this`: the attributes object of the component containing this DOM element.
+- `info`: an object containing...
+	- `event`: the DOM event.
+	- `element`: the DOM element that received the event.
+	- `node`: the virtual DOM node (containing the attributes) for the DOM element that received the event.
 
 When the event handler returns anything other than `glasgow.NOT_HANDLED`, the event will not propagate further up the tree, and `preventDefault()` will be called on it.
 
@@ -482,16 +494,17 @@ Because of this, having lots of event handlers in your tree will not require the
 Event handlers receive arguments like this:
 
 ```jsx
-function createHandler(event, attrs, node) { ... }
+function createHandler(info) { ... }
 ```
 
 Where...
-- `this` is the DOM element that was created.
-- `event` object, containg:
-	- `type` is `"create"`
-	- `parentStable` is a boolean indicating whether the parent DOM element already existed earlier (`true`) or was also just created in this refresh (`false`). This is mostly useful for fade-in transitions and such.
-- `attrs` is the attributes object of the component containing this DOM element.
-- `node` is the virtual DOM node (containing the attributes) for the new DOM element.
+- `this`: the attributes object of the component containing this DOM element.
+- `info`: an object containing...
+	- `event`: an object, containg...
+		- `type`: the string `"create"`
+		- `parentStable`: a boolean indicating whether the parent DOM element already existed earlier (`true`) or was also just created in this refresh (`false`). This is mostly useful for fade-in transitions and such.
+	- `element`: the DOM element that was created.
+	- `node`: the virtual DOM node (containing the attributes) for the new DOM element.
 
 #### onremove
 
@@ -500,49 +513,40 @@ Where...
 Event handlers receive arguments like this:
 
 ```jsx
-function removeHandler(event, attrs, node) { ... }
+function removeHandler(info) { ... }
 ```
 
 Where...
-- `this` is the DOM element that is to be removed, but only when `parentStable == true`. **Otherwise it is null!**
-- `event` object, containg:
-	- `type` is `"remove"`
-	- `parentStable` is a boolean indicating whether the parent element will remain in the DOM (`true`) or will also be removed during this refresh (`false`). This is mostly useful for fade-out transitions and such.
-- `attrs` is the attributes object of the component containing this DOM element.
-- `node` is the virtual DOM node (containing the attributes) for the to-be-removed DOM element.
+- `this`: the attributes object of the component containing this DOM element.
+- `info`: an object containing...
+	- `event` object, containg...
+		- `type`: the string `"remove"`
+		- `parentStable`: a boolean indicating whether the parent element will remain in the DOM (`true`) or will also be removed during this refresh (`false`). This is mostly useful for fade-out transitions and such.
+	- `element`: the DOM element that is to be removed, but only when `parentStable == true`. **Otherwise it is null!**
+	- `node`: the virtual DOM node (containing the attributes) for the to-be-removed DOM element.
 
 When `parentStable == true` and the event handler returns a Promise, the element will be preserved in the DOM until the Promise resolves. This comes in handy for fade-out transitions, and such. (See: Transitions.)
 
 
 #### onrefresh *(experimental)*
 
-`onrefresh` is a special case event, as it is not a DOM event. It is fired after every refresh, before returning control back to the browser.
+`onrefresh`: a special case event, as it is not a DOM event. It is fired after every refresh, before returning control back to the browser.
 
 Event handlers receive arguments like this:
 
 ```jsx
-function refreshHandler(event, attrs, node) { ... }
+function refreshHandler(info) { ... }
 ```
 
 Where...
-- `this` is the DOM element.
-- `event` object, containing:
-	- `type` is `"refresh"`
-- `attrs` is the attributes object of the component containing this DOM element.
-- `node` is the virtual DOM node (containing the attributes) for the DOM element.
+- `this`: the DOM element.
+- `info`: an object containing...
+	- `event` object, containing...
+		- `type`: the string `"refresh"`
+	- `attrs`: the attributes object of the component containing this DOM element.
+	- `node`: the virtual DOM node (containing the attributes) for the DOM element.
 
 This method is marked **experimental** because I'm considering changing semantics on this in the at some point. Perhaps an `onupdate` event, only firing when changes to the element or its children have been made, would be more useful.
-
-
-
-### Virtual DOM nodes
-
-There are two types of virtual DOM nodes:
-
-- `VNode` Objects returned by the `glasgow(...)` function.
-
-- Plain old JavaScript strings, which are rendered to DOM `TextNode`s.
-
 
 
 ### Components
