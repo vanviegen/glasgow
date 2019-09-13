@@ -237,9 +237,7 @@ function mount(domParent, ...rootTagArgs) {
 		if (typeof tag !== 'string') { // a component
 			// When the attributes match, we will transfer state from the old component.
 			if (attrsEqual(newNode.attrs,oldNode.attrs)) {
-				for(let key in oldNode.attrs) {
-					if (key[0]==='$') newNode.attrs[key] = oldNode.attrs[key];
-				}
+				newNode.attrs = oldNode.attrs;
 			} else {
 				if (typeof tag.stop === 'function') tag.stop.call(oldNode.attrs);
 				if (typeof tag.start === 'function') tag.start.call(newNode.attrs);
