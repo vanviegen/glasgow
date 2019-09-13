@@ -221,7 +221,7 @@ Apart from installing and importing this library, you'll need to setup *babel* t
  * [The glasgow module](#the-glasgow-module)
     * [glasgow(tag, ...args)](#glasgowtag-args)
        * [Example](#example)
-    * [glasgow.mount(domParent, component)](#glasgowmountdomparent-component)
+    * [glasgow.mount(domParent, tag, ...args)](#glasgowmountdomparent-tag-args)
        * [Examples](#examples)
     * [glasgow.setDebug(debug)](#glasgowsetdebugdebug)
     * [glasgow.fadeIn(...)](#glasgowfadein)
@@ -306,7 +306,7 @@ glasgow('main',
 Append `glasgow(tag, ...args)` to `domParent`, returning a glasgow instance. (See: Instances.)
 
 - `domParent` is just a DOM element to which a single child will be appended.
-- `tag` is a component or a HTLM tag string.
+- `tag` is a component function/class or an HTLM tag string.
 - `args` is an arguments array such as accepted by `glasgow(tag, ...args)`.
 
 ##### Examples
