@@ -147,7 +147,7 @@ class Element extends ElementBase {
 		let result = this.childNodes.join(' ');
 		desired = desired.toString();
 		if (verbose>2) console.log(`  assert ${desired}`);
-		if (result!==desired) throw new Error(`invalid result ${result} instead of ${desired}`);
+		if (result!==desired) throw new Error(`invalid result\n\t${result} instead of\n\t${desired}`);
 	}
 
 	addEventListener(name, func) {

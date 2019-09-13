@@ -52,6 +52,27 @@ exports.bind = [{
 	}
 }];
 
+exports.emptyBind = [{
+	root: function() {
+		return gg('div',
+			gg('input', {type: 'text', binding: '$text'}),
+			gg('input', {type: 'checkbox', binding: '$checkbox'}),
+			gg('input', {type: 'submit', id: 'x', onclick: () => {
+				this.$json = JSON.stringify([this.$text, this.$checkbox]);
+			}}),
+			this.$json
+		);
+	},
+
+	result: `div{input{@type="text" value=""} input{@type="checkbox" checked=false} input{@id="x" @type="submit"}}`,
+
+	after: function(body) {
+		let x = body.getElementById('x');
+		x.event('click');
+		body.assertChildren(`div{input{@type="text" value=""} input{@type="checkbox" checked=false} input{@id="x" @type="submit"} "[\\"\\",false]"}`);
+	}
+}];
+
 exports.fadeOut = [{
 	root: function() {
 		return gg('h1',

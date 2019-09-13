@@ -622,8 +622,12 @@ function mount(domParent, ...rootTagArgs) {
 	
 	function bind(node, context) {
 		let val = readBinding(node.attrs.binding, context);
-		if (node.attrs.type === 'checkbox') node.attrs.checked = !!val;
-		else node.attrs.value = val==null ? "" : ""+val;
+		if (node.attrs.type === 'checkbox') node.attrs.checked = val = !!val;
+		else node.attrs.value = val = val==null ? "" : ""+val;
+
+		// If the bound property was empty, immediately set it to its default value
+		writeBinding(node.attrs.binding, context, val);
+
 		node.attrs.oninput = bindingEventHandler;
 	}
 	
