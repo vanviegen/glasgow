@@ -29,7 +29,7 @@ Glasgow is primarily meant for educational use. It has the same main features as
 
 - *Easy* [components](#components) -- they're usually just functions. [CSS styling](#component-css) can be attached to a component, allowing you to create *single file components* like Vue.js.
 
-- *Easy* animations(#glasgowfadein) for element creation and destruction.
+- *Easy* [animations](#glasgowfadein) for element creation and destruction.
 
 - *Tiny*. Less than 4kb minified and gzipped. Built from a [single source file](glasgow.js) that is small enough to read. No dependencies.
 
