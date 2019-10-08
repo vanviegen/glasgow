@@ -359,7 +359,7 @@ class List {
 		        });
 	    	}),
 	    	glasgow('input', {
-		    	value: 'Add'
+		    	value: 'Add',
 		    	type: 'submit',
 		    	onclick: this.addItem,
 		    })
