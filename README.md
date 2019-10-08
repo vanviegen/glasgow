@@ -5,7 +5,6 @@ An easy-to-use JavaScript library for building user interfaces in a *functional 
 
 * [Why glasgow](#why-glasgow)
 * [Example usage](#example-usage)
-* [Installation](#installation)
 * [Reference manual](#reference-manual)
 * [Changelog](#changelog)
 
@@ -49,10 +48,8 @@ Glasgow is primarily meant for educational use. It has the same main features as
 ### Without JSX
 ```js
 
-// Load the glasgow library from a CDN. As we will be using the default 
-// function continuously in places where we want to avoid clutter, I'll
-// give it a really short name: gg.
-import gg from 'https://cdn.jsdelivr.net/npm/glasgow@0.9.4/glasgow.js';
+// Load the glasgow library from a CDN.
+import glasgow from 'https://cdn.jsdelivr.net/npm/glasgow@0.9.4/glasgow.js';
 
 
 // I'm using global state here for the list. We could have also chosen to pass
@@ -65,9 +62,9 @@ let list = [];
 // A component gets a (JSX) attributes object and an array of children (which
 // we're ignoring here).
 function Item(children) {
-  return gg('li', {oncreate: gg.fadeIn, onremove: gg.fadeOut},
-    gg('label', this.key),
-    gg('.delete', {onclick: deleteItem}, '✖')
+  return glasgow('li', {oncreate: glasgow.fadeIn, onremove: glasgow.fadeOut},
+    glasgow('label', this.key),
+    glasgow('.delete', {onclick: deleteItem}, '✖')
   );
 }
 
@@ -103,11 +100,11 @@ function ToDo(children) {
   // into a list of virtual DOM elements.
   // `key` is a special attribute, as it's used to match-up old elements with
   // new elements when doing a refresh. (See: Reconciliation.)
-  return gg('main',
-    gg('h1', 'Mandatory ToDo example'),
-    list.map(key => gg(Item, {key})),
-    gg('input', {type: 'text', placeholder: 'New item', binding: '$newItem'}),
-    gg('input', {type: 'button', value: 'Add', onclick: addItem})
+  return glasgow('main',
+    glasgow('h1', 'Mandatory ToDo example'),
+    list.map(key => glasgow(Item, {key})),
+    glasgow('input', {type: 'text', placeholder: 'New item', binding: '$newItem'}),
+    glasgow('input', {type: 'button', value: 'Add', onclick: addItem})
   )
   // We're binding the text input to `$newItem`, meaning it is synced with
   // `this.$newItem`. (See: Bindings.)
@@ -122,18 +119,19 @@ function addItem() {
 
 
 // And this is where we add the ToDo component to the DOM. Presto!
-gg.mount(document.body, ToDo);
+glasgow.mount(document.body, ToDo);
 ```
 
 
 ### With JSX
 
+In order to transpile JSX to browser-readable JavaScript, you'll probably want to use a bundler like Parcel (which works out-of-the-box!) or WebPack. Glasgow can be installed using a simple `npm install glasgow`.
 
 ```jsx
 // First we'll instruct the JSX compiler to generate `glasgow(..)` calls:
 /** @jsx glasgow */
 
-// Import glasgow from npm package.
+// Import glasgow from an installed npm package.
 import glasgow from 'glasgow';
 
 
@@ -210,11 +208,6 @@ glasgow.mount(document.body, ToDo);
 ```
 
 
-## Installation
-
-Apart from installing and importing this library, you'll need to setup *babel* to transpile JSX to plain JavaScript. Sorry, no detailed instructions yet.
-
-
 
 ## Reference manual
 
@@ -252,12 +245,6 @@ Apart from installing and importing this library, you'll need to setup *babel* t
 ### The glasgow module
 
 This is the function obtained by importing glasgow.
-
-```jsx
-const glasgow = require('glasgow');
-```
-
-Or
 
 ```jsx
 import glasgow from 'glasgow';
@@ -761,11 +748,11 @@ Without the use of JSX, the above code looks like this:
 ```jsx
 function UserNameEditor() {
   // This binds the input to this.users[this.userId]
-  return gg('input', {binding: ["users",this.userId]});
+  return glasgow('input', {binding: ["users",this.userId]});
 }
 // And here's how you would use this component:
 let users = {1: "Frank"};
-let node = gg(UserNameEditor, {users, userId: 1});
+let node = glasgow(UserNameEditor, {users, userId: 1});
 ```
 
 When `binding` is a string, it is automatically converted to a path array by splitting it on dots (`binding.split('.')`). This allows you to write things like `<input binding="dataStore.users.123">`.
