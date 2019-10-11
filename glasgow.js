@@ -73,6 +73,7 @@ function addChild(children, child) {
 	let type = typeof child;
 	if (type === 'object') {
 		if (child instanceof VNode) {
+			if (debug && (child.dbgEl || child.concrete)) throw new Error("VDOM nodes should not be recycled:" + JSON.stringify(child));
 			children.push(child);
 			return;
 		}
